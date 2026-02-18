@@ -1,9 +1,8 @@
-
 export enum OnboardingStep {
-  WELCOME = 'WELCOME',
-  NAME = 'NAME',
-  CONTACT = 'CONTACT',
-  SUCCESS = 'SUCCESS'
+  WELCOME = "WELCOME",
+  NAME = "NAME",
+  CONTACT = "CONTACT",
+  SUCCESS = "SUCCESS",
 }
 
 export interface FormData {

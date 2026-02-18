@@ -1,17 +1,18 @@
-
-import React, { useState, useCallback } from 'react';
-import { OnboardingStep, FormData } from './types';
-import StepWelcome from './components/StepWelcome';
-import StepName from './components/StepName';
-import StepContact from './components/StepContact';
-import StepSuccess from './components/StepSuccess';
+import React, { useState, useCallback } from "react";
+import { OnboardingStep, FormData } from "./types";
+import StepWelcome from "./components/StepWelcome";
+import StepName from "./components/StepName";
+import StepContact from "./components/StepContact";
+import StepSuccess from "./components/StepSuccess";
 
 const App: React.FC = () => {
-  const [currentStep, setCurrentStep] = useState<OnboardingStep>(OnboardingStep.WELCOME);
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>(
+    OnboardingStep.WELCOME,
+  );
   const [formData, setFormData] = useState<FormData>({
-    firstName: '',
-    lastName: '',
-    phoneNumber: '',
+    firstName: "",
+    lastName: "",
+    phoneNumber: "",
   });
 
   const nextStep = useCallback(() => {
@@ -49,19 +50,19 @@ const App: React.FC = () => {
         <StepWelcome onContinue={nextStep} />
       )}
       {currentStep === OnboardingStep.NAME && (
-        <StepName 
-          formData={formData} 
-          onUpdate={updateFormData} 
-          onContinue={nextStep} 
-          onBack={prevStep} 
+        <StepName
+          formData={formData}
+          onUpdate={updateFormData}
+          onContinue={nextStep}
+          onBack={prevStep}
         />
       )}
       {currentStep === OnboardingStep.CONTACT && (
-        <StepContact 
-          formData={formData} 
-          onUpdate={updateFormData} 
-          onContinue={nextStep} 
-          onBack={prevStep} 
+        <StepContact
+          formData={formData}
+          onUpdate={updateFormData}
+          onContinue={nextStep}
+          onBack={prevStep}
         />
       )}
       {currentStep === OnboardingStep.SUCCESS && (
