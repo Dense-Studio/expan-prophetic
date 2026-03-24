@@ -13,13 +13,9 @@ const LoginPage: React.FC = () => {
     setError("");
 
     setTimeout(() => {
-      if (password === "expanadmin123") {
+      if (password === "Juanta@93") {
         sessionStorage.setItem("expan_admin_auth", "true");
         sessionStorage.setItem("expan_admin_role", "superadmin");
-        navigate("/admin");
-      } else if (password === "admin123") {
-        sessionStorage.setItem("expan_admin_auth", "true");
-        sessionStorage.setItem("expan_admin_role", "admin");
         navigate("/admin");
       } else {
         setError("Incorrect password.");

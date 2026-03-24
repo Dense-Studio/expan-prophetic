@@ -7,40 +7,8 @@ interface StepWelcomeProps {
   onUpdate?: (data: Partial<FormData>) => void;
 }
 
-const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue, onUpdate }) => {
+const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!navigator.geolocation || !onUpdate) return;
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        onUpdate({ latitude, longitude });
-
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-          );
-          const geo = await res.json();
-          if (geo?.display_name) {
-            const parts = geo.display_name.split(", ");
-            const short =
-              parts.length > 2
-                ? `${parts[0]}, ${parts[parts.length - 3] || parts[parts.length - 2]}, ${parts[parts.length - 1]}`
-                : geo.display_name;
-            onUpdate({ locationName: short });
-          }
-        } catch {
-          console.warn("Reverse geocoding failed");
-        }
-      },
-      (err) => {
-        console.warn("Geolocation denied or unavailable:", err.message);
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
-  }, []);
 
   return (
     <div className="relative min-h-screen flex flex-col items-center overflow-hidden bg-bg-deep">

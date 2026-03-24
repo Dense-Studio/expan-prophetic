@@ -50,7 +50,7 @@ const StepDetails: React.FC<StepDetailsProps> = ({
                 </div>
                 <input
                   className="flex w-full rounded-xl border border-white/8 glass-input h-14 pl-11 pr-4 text-white placeholder:text-white/20 text-base font-medium focus:border-accent/50 outline-none"
-                  placeholder="Where are you based?"
+                  placeholder="Where do you stay? (e.g. Accra, Kumasi)"
                   type="text"
                   value={formData.locationName}
                   onChange={(e) => onUpdate({ locationName: e.target.value })}
