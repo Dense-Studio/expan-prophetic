@@ -13,7 +13,7 @@ const LoginPage: React.FC = () => {
     setError("");
 
     setTimeout(() => {
-      if (password === "Juanta@93") {
+      if (password === "Juanita@93") {
         sessionStorage.setItem("expan_admin_auth", "true");
         sessionStorage.setItem("expan_admin_role", "superadmin");
         navigate("/admin");
