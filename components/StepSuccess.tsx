@@ -19,7 +19,7 @@ const StepSuccess: React.FC<StepSuccessProps> = ({ formData }) => {
 
         <div className="animate-fade-up" style={{ animationDelay: "0.15s" }}>
           <h1 className="text-3xl font-extrabold text-white mb-3">
-            Welome, <span className="text-gradient">{formData.firstName}</span>!
+            Welcome, <span className="text-gradient">{formData.firstName}</span>!
           </h1>
           <p className="text-white/40 text-base leading-relaxed mb-4">
             You are now part of the EXPAN Prophetic family.

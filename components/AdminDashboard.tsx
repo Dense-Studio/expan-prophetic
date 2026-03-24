@@ -11,8 +11,9 @@ const AdminDashboard: React.FC = () => {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab] = useState<"registrations">("registrations");
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterSource, setFilterSource] = useState<string>("all");
+  const [filterStudent, setFilterStudent] = useState<string>("all");
   const [isSuperAdmin] = useState(() => sessionStorage.getItem("expan_admin_role") === "superadmin");
 
   useEffect(() => {
@@ -37,17 +38,32 @@ const AdminDashboard: React.FC = () => {
 
   const filtered = useMemo(() => {
     let items = registrations;
+
+    // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      items = items.filter(r => 
-        r.first_name.toLowerCase().includes(q) || 
-        r.last_name.toLowerCase().includes(q) || 
+      items = items.filter(r =>
+        r.first_name.toLowerCase().includes(q) ||
+        r.last_name.toLowerCase().includes(q) ||
         r.phone_number.includes(q) ||
         (r.location_name || "").toLowerCase().includes(q)
       );
     }
+
+    // Referral source filter
+    if (filterSource !== "all") {
+      items = items.filter(r => r.referral_source === filterSource);
+    }
+
+    // Student filter
+    if (filterStudent === "yes") {
+      items = items.filter(r => r.is_student);
+    } else if (filterStudent === "no") {
+      items = items.filter(r => !r.is_student);
+    }
+
     return items;
-  }, [registrations, searchQuery]);
+  }, [registrations, searchQuery, filterSource, filterStudent]);
 
   const handleDelete = async (id: string) => {
     if (!isSuperAdmin || !confirm("Delete this registration?")) return;
@@ -57,6 +73,32 @@ const AdminDashboard: React.FC = () => {
     } catch (err: any) {
       alert(err.message);
     }
+  };
+
+  const handleExportCSV = () => {
+    const headers = ["First Name", "Last Name", "Phone", "Location", "Referral Source", "Student", "School", "Registered At"];
+    const rows = filtered.map(r => [
+      r.first_name,
+      r.last_name,
+      r.phone_number,
+      r.location_name || "",
+      r.referral_source || "",
+      r.is_student ? "Yes" : "No",
+      r.school || "",
+      new Date(r.created_at).toLocaleDateString(),
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `expan-registrations-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleLogout = () => {
@@ -84,58 +126,110 @@ const AdminDashboard: React.FC = () => {
             <p className="text-[10px] text-white/40 uppercase tracking-widest">Registrations Management</p>
           </div>
         </div>
-        <button onClick={handleLogout} className="text-white/40 hover:text-white transition-colors text-xs font-bold">Logout</button>
+        <div className="flex items-center gap-3">
+          <button onClick={handleExportCSV} className="flex items-center gap-1.5 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/20 px-3 py-1.5 rounded-lg transition-all text-xs font-bold">
+            <span className="material-symbols-outlined text-sm">download</span>
+            Export CSV
+          </button>
+          <button onClick={handleLogout} className="text-white/40 hover:text-white transition-colors text-xs font-bold">Logout</button>
+        </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-6">
-        <div className="space-y-6">
-          <div className="relative">
-            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/30">search</span>
-            <input 
-              type="text" 
-              placeholder="Search by name, phone, or location..." 
-              className="w-full h-14 pl-12 pr-4 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-primary/50 transition-all text-sm"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
+      <main className="max-w-7xl mx-auto p-4 md:p-6">
+        <div className="space-y-4 md:space-y-6">
+
+          {/* Stats Bar */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="glass-card rounded-xl p-4 border border-white/5 text-center">
+              <p className="text-2xl md:text-3xl font-extrabold text-primary">{registrations.length}</p>
+              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">Total</p>
+            </div>
+            <div className="glass-card rounded-xl p-4 border border-white/5 text-center">
+              <p className="text-2xl md:text-3xl font-extrabold text-accent">{registrations.filter(r => r.is_student).length}</p>
+              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">Students</p>
+            </div>
+            <div className="glass-card rounded-xl p-4 border border-white/5 text-center">
+              <p className="text-2xl md:text-3xl font-extrabold text-white/70">{filtered.length}</p>
+              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">Showing</p>
+            </div>
+          </div>
+
+          {/* Search + Filters */}
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/30">search</span>
+              <input
+                type="text"
+                placeholder="Search by name, phone, or location..."
+                className="w-full h-12 pl-12 pr-4 bg-white/5 border border-white/10 rounded-xl outline-none focus:border-primary/50 transition-all text-sm"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <select
+              value={filterSource}
+              onChange={e => setFilterSource(e.target.value)}
+              className="h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-sm text-white outline-none"
+              style={{ colorScheme: "dark" }}
+            >
+              <option value="all">All Sources</option>
+              <option value="Posters & Flyers">Posters & Flyers</option>
+              <option value="Invited by someone">Invited by someone</option>
+              <option value="Social Media">Social Media</option>
+              <option value="Other">Other</option>
+            </select>
+            <select
+              value={filterStudent}
+              onChange={e => setFilterStudent(e.target.value)}
+              className="h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-sm text-white outline-none"
+              style={{ colorScheme: "dark" }}
+            >
+              <option value="all">All Members</option>
+              <option value="yes">Students Only</option>
+              <option value="no">Non-Students</option>
+            </select>
           </div>
 
           {error && <div className="p-4 rounded-xl bg-red-400/10 border border-red-400/20 text-red-400 text-sm">{error}</div>}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Registration Cards — larger sizing */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filtered.map(reg => (
-              <div key={reg.id} className="glass-card rounded-2xl p-5 border border-white/5 hover:border-white/10 transition-all group">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+              <div key={reg.id} className="glass-card rounded-2xl p-6 border border-white/5 hover:border-white/10 transition-all group">
+                <div className="flex items-center gap-4 mb-5">
+                  <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-lg">
                     {reg.first_name[0]}{reg.last_name[0]}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-sm truncate">{reg.first_name} {reg.last_name}</h3>
-                    <p className="text-xs text-white/40">{reg.phone_number}</p>
+                    <h3 className="font-bold text-base truncate">{reg.first_name} {reg.last_name}</h3>
+                    <p className="text-sm text-white/40">{reg.phone_number}</p>
                   </div>
                   {reg.is_student && (
-                    <span className="bg-accent/10 text-accent text-[8px] font-bold px-2 py-0.5 rounded-full border border-accent/20">STUDENT</span>
+                    <span className="bg-accent/10 text-accent text-[10px] font-bold px-3 py-1 rounded-full border border-accent/20">STUDENT</span>
                   )}
                 </div>
-                
-                <div className="space-y-2 mb-4">
-                  <p className="text-[11px] text-white/30 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-sm">location_on</span> {reg.location_name || "Unknown Location"}
+
+                <div className="space-y-3 mb-5">
+                  <p className="text-sm text-white/40 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base">location_on</span> {reg.location_name || "Unknown Location"}
                   </p>
-                  <p className="text-[11px] text-white/30 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-sm">campaign</span> Heard via: <span className="text-white/60">{reg.referral_source || "Not specified"}</span>
+                  <p className="text-sm text-white/40 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base">campaign</span> Heard via: <span className="text-white/60">{reg.referral_source || "Not specified"}</span>
                   </p>
                   {reg.is_student && reg.school && (
-                    <p className="text-[11px] text-white/30 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-sm">school</span> {reg.school}
+                    <p className="text-sm text-white/40 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base">school</span> {reg.school}
                     </p>
                   )}
+                  <p className="text-xs text-white/20 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-sm">calendar_today</span> {new Date(reg.created_at).toLocaleDateString()}
+                  </p>
                 </div>
 
                 {isSuperAdmin && (
                   <div className="flex justify-end pt-3 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleDelete(reg.id)} className="text-red-400/60 hover:text-red-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
-                      <span className="material-symbols-outlined text-xs">delete</span> Delete
+                    <button onClick={() => handleDelete(reg.id)} className="text-red-400/60 hover:text-red-400 text-xs font-bold uppercase tracking-widest flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">delete</span> Delete
                     </button>
                   </div>
                 )}

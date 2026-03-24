@@ -12,12 +12,17 @@ const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center overflow-hidden bg-bg-deep">
-      {/* 2x2 Background Image Grid with Blended Overlay */}
-      <div className="absolute inset-0 z-0 grid grid-cols-2 grid-rows-2 opacity-50">
-        <img src="/assets/image-1.jpg" alt="Ministration 1" className="w-full h-full object-cover border-[0.5px] border-white/5" />
-        <img src="/assets/image-2.jpg" alt="Ministration 2" className="w-full h-full object-cover border-[0.5px] border-white/5" />
-        <img src="/assets/image-3.jpg" alt="Ministration 3" className="w-full h-full object-cover border-[0.5px] border-white/5" />
-        <img src="/assets/image-4.jpg" alt="Ministration 4" className="w-full h-full object-cover border-[0.5px] border-white/5" />
+      {/* Background Image — single on mobile, 2x2 grid on md+ */}
+      <div className="absolute inset-0 z-0 opacity-50">
+        {/* Mobile: single image */}
+        <img src="/assets/image-1.jpg" alt="Ministration" className="md:hidden w-full h-full object-cover" />
+        {/* Desktop: 2x2 grid */}
+        <div className="hidden md:grid grid-cols-2 grid-rows-2 w-full h-full">
+          <img src="/assets/image-1.jpg" alt="Ministration 1" className="w-full h-full object-cover border-[0.5px] border-white/5" />
+          <img src="/assets/image-2.jpg" alt="Ministration 2" className="w-full h-full object-cover border-[0.5px] border-white/5" />
+          <img src="/assets/image-3.jpg" alt="Ministration 3" className="w-full h-full object-cover border-[0.5px] border-white/5" />
+          <img src="/assets/image-4.jpg" alt="Ministration 4" className="w-full h-full object-cover border-[0.5px] border-white/5" />
+        </div>
         
         {/* Blending Overlays */}
         <div className="absolute inset-0 bg-gradient-to-b from-bg-deep/60 via-bg-deep/20 to-bg-deep/80"></div>
@@ -52,7 +57,7 @@ const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
                 <span className="material-symbols-outlined text-accent" style={{ fontVariationSettings: "'FILL' 1" }}>event_available</span>
               </div>
               <div className="text-left">
-                <p className="text-white font-bold text-lg">Next All-Night</p>
+                <p className="text-white font-bold text-lg">All-Night</p>
                 <p className="text-white/50 text-xs">Join thousands for a divine shifting</p>
               </div>
             </div>
