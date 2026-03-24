@@ -1,9 +1,6 @@
 /**
- * Send a welcome SMS via the Arkesel API (proxied through Vite dev server).
- *
- * The Vite proxy at `/api/sms` forwards the request to
- * `https://sms.arkesel.com/api/v2/sms/send` and injects the API key header,
- * so no secrets are exposed to the browser.
+ * SMS Service (Arkesel)
+ * Sends SMS messages via the Arkesel API.
  */
 export async function sendWelcomeSms(
   phoneNumber: string,
@@ -32,18 +29,67 @@ export async function sendWelcomeSms(
   console.log("✅ Welcome SMS sent successfully");
 }
 
-/**
- * Convert a local Ghana phone number to international format (233...).
- * Handles formats like: 0241234567, 241234567, 233241234567
- */
+export async function sendBulkReminderSms(
+  phoneNumbers: string[],
+  message: string,
+): Promise<void> {
+  const formattedPhones = [
+    ...new Set(phoneNumbers.map((phone) => formatGhanaPhone(phone))),
+  ];
+
+  if (formattedPhones.length === 0) return;
+
+  const body = {
+    sender: "EXPAN",
+    message: message,
+    recipients: formattedPhones,
+  };
+
+  const response = await fetch("/api/sms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("❌ Bulk SMS send failed:", errorText);
+    throw new Error(`SMS error: ${response.status}`);
+  }
+
+  console.log(`✅ Bulk SMS sent successfully to ${formattedPhones.length} recipients`);
+}
+
+export async function sendCheckInSms(
+  phoneNumber: string,
+  firstName: string,
+): Promise<void> {
+  const formattedPhone = formatGhanaPhone(phoneNumber);
+
+  const body = {
+    sender: "EXPAN",
+    message: `Hi ${firstName}! 🙏 Thanks for joining us for our prophetic service today! Stay blessed and have a great week ahead.`,
+    recipients: [formattedPhone],
+  };
+
+  const response = await fetch("/api/sms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("❌ Check-in SMS send failed:", errorText);
+    throw new Error(`SMS error: ${response.status}`);
+  }
+
+  console.log("✅ Check-in SMS sent successfully");
+}
+
 function formatGhanaPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
-
-  if (digits.startsWith("233")) {
-    return digits;
-  }
-  if (digits.startsWith("0")) {
-    return "233" + digits.slice(1);
-  }
+  if (digits.startsWith("233")) return digits;
+  if (digits.startsWith("0")) return "233" + digits.slice(1);
   return "233" + digits;
 }

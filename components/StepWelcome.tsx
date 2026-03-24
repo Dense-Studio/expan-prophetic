@@ -1,64 +1,156 @@
-
-import React from 'react';
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { FormData } from "../types";
 
 interface StepWelcomeProps {
   onContinue: () => void;
+  onUpdate?: (data: Partial<FormData>) => void;
 }
 
-const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
+const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue, onUpdate }) => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!navigator.geolocation || !onUpdate) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        onUpdate({ latitude, longitude });
+
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+          );
+          const geo = await res.json();
+          if (geo?.display_name) {
+            const parts = geo.display_name.split(", ");
+            const short =
+              parts.length > 2
+                ? `${parts[0]}, ${parts[parts.length - 3] || parts[parts.length - 2]}, ${parts[parts.length - 1]}`
+                : geo.display_name;
+            onUpdate({ locationName: short });
+          }
+        } catch {
+          console.warn("Reverse geocoding failed");
+        }
+      },
+      (err) => {
+        console.warn("Geolocation denied or unavailable:", err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }, []);
+
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-between overflow-hidden">
-      {/* Decorative Gradients */}
-      <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-[-5%] left-[-5%] w-[400px] h-[400px] bg-primary/5 rounded-full blur-[80px] pointer-events-none"></div>
+    <div className="relative min-h-screen flex flex-col items-center overflow-hidden bg-bg-deep">
+      {/* 2x2 Background Image Grid with Blended Overlay */}
+      <div className="absolute inset-0 z-0 grid grid-cols-2 grid-rows-2 opacity-50">
+        <img src="/assets/image-1.jpg" alt="Ministration 1" className="w-full h-full object-cover border-[0.5px] border-white/5" />
+        <img src="/assets/image-2.jpg" alt="Ministration 2" className="w-full h-full object-cover border-[0.5px] border-white/5" />
+        <img src="/assets/image-3.jpg" alt="Ministration 3" className="w-full h-full object-cover border-[0.5px] border-white/5" />
+        <img src="/assets/image-4.jpg" alt="Ministration 4" className="w-full h-full object-cover border-[0.5px] border-white/5" />
+        
+        {/* Blending Overlays */}
+        <div className="absolute inset-0 bg-gradient-to-b from-bg-deep/60 via-bg-deep/20 to-bg-deep/80"></div>
+        <div className="absolute inset-0 bg-bg-deep/30 backdrop-blur-[1px]"></div>
+      </div>
 
-      <header class="w-full pt-12 flex justify-center z-10">
-        <div class="flex flex-col items-center gap-2">
-          <span class="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1", color: '#e11d48' }}>bolt</span>
-          <div class="w-px h-8 bg-rose-500/20"></div>
-        </div>
-      </header>
-
-      <main class="flex-1 flex flex-col items-center justify-center px-6 max-w-2xl w-full text-center z-10">
-        <h1 class="font-serif text-5xl md:text-7xl text-white leading-[1.1] mb-8 tracking-tight">
-          Welcome to <br/>
-          <span class="italic font-normal">EXPAN</span>
-        </h1>
-
-        <div class="relative w-full aspect-[16/9] mb-10 overflow-hidden rounded-xl shadow-2xl shadow-primary/10">
-          <div 
-            class="absolute inset-0 bg-center bg-no-repeat bg-cover transform scale-105" 
-            style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBYIqF62Ly0daqgKAJ82aFiDCY6wWKtDM1TplwThmt4frnIkML3p9kv71ggWn4VHjZLHTaChx4PZ9OrgTUYeSXAdr6BUiOWqPOa2dar1Hx2Rjk5pERad3DBQ9m6bQUOvoNcSerF7VPKaFxVBc1uVvQMmbqmARPq-MioUODHcoL826ZfFjg9_4iY5vP0chYYf_Up8tP_irW5SsT_GT-SZFZL_rZXrIpgggHYYEiiQN-hE3E8gAAjZm3IJNv-2-lKRECIOKiaM6KbtnQ")' }}
-          ></div>
-          <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+      {/* Animated background orbs */}
+      <div className="absolute top-[-20%] right-[-15%] w-[400px] h-[400px] bg-primary/20 rounded-full blur-[120px] animate-pulse-soft pointer-events-none z-1"></div>
+      
+      <main className="flex-1 flex flex-col items-center justify-center px-6 max-w-lg w-full text-center z-10">
+        <div className="mb-6 animate-fade-up" style={{ animationDelay: "0.1s" }}>
+          <div className="w-32 h-32 rounded-full bg-white/5 backdrop-blur-md flex items-center justify-center shadow-2xl shadow-primary/20 ring-2 ring-white/20">
+            <span className="material-symbols-outlined text-6xl text-primary">auto_awesome</span>
+          </div>
         </div>
 
-        <p class="text-slate-400 text-lg md:text-xl font-normal leading-relaxed max-w-lg mb-12">Extreme Prophetic</p>
+        <div className="animate-fade-up" style={{ animationDelay: "0.2s" }}>
+          <span className="text-xs font-bold text-accent/70 tracking-[0.2em] uppercase mb-4 block">
+            Extreme Prophetic Encounter
+          </span>
+          <h1 className="font-serif text-5xl md:text-6xl text-white leading-[0.95] mb-4 tracking-tighter">
+            EXPAN
+            <br />
+            <span className="text-gradient italic">Prophetic</span>
+          </h1>
+        </div>
+
+        <div className="w-full mt-6 animate-fade-up" style={{ animationDelay: "0.3s" }}>
+          <div className="glass-card rounded-3xl p-6 border border-white/10">
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center shrink-0 border border-primary/30">
+                <span className="material-symbols-outlined text-accent" style={{ fontVariationSettings: "'FILL' 1" }}>event_available</span>
+              </div>
+              <div className="text-left">
+                <p className="text-white font-bold text-lg">Next All-Night</p>
+                <p className="text-white/50 text-xs">Join thousands for a divine shifting</p>
+              </div>
+            </div>
+
+            <div className="h-px bg-white/5 mb-5"></div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-lg text-accent/70" style={{ fontVariationSettings: "'FILL' 1" }}>schedule</span>
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm">8:00 PM</p>
+                  <p className="text-white/40 text-[10px] uppercase tracking-wider">Prompt</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-lg text-accent/70" style={{ fontVariationSettings: "'FILL' 1" }}>location_on</span>
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm">Thea Villa</p>
+                  <p className="text-white/40 text-[10px] uppercase tracking-wider">Takoradi</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-white/40 text-sm mt-8 animate-fade-up" style={{ animationDelay: "0.4s" }}>
+          ✨ Experience the supernatural
+        </p>
       </main>
 
-      <footer class="w-full max-w-md px-6 pb-16 z-10">
-        <div class="flex flex-col gap-6">
-          <button 
+      <footer className="w-full max-w-lg px-6 pb-10 z-10 animate-slide-up" style={{ animationDelay: "0.5s" }}>
+        <div className="flex flex-col gap-3">
+          <button
             onClick={onContinue}
-            class="group relative flex h-16 w-full items-center justify-center overflow-hidden rounded-xl bg-primary text-white text-lg font-bold transition-all hover:shadow-xl hover:shadow-primary/30 active:scale-[0.98]"
+            className="group relative flex h-14 w-full items-center justify-center overflow-hidden rounded-2xl bg-primary text-white text-base font-bold transition-all duration-300 btn-glow active:scale-[0.97]"
           >
-            <span class="relative z-10 flex items-center gap-2">
-              Continue
-              <span class="material-symbols-outlined text-xl transition-transform group-hover:translate-x-1">arrow_forward</span>
-            </span>
-            <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <span className="material-symbols-outlined mr-2 text-xl">person_add</span>
+            <span className="relative z-10 flex items-center gap-2">Register Now</span>
+            <div className="absolute inset-0 bg-gradient-to-r from-primary-light/0 via-white/10 to-primary-light/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           </button>
-          
-          <p class="text-center text-sm text-slate-500">
-            Already have an account? 
-            <button class="ml-1 text-white font-semibold hover:text-primary transition-colors underline underline-offset-4 decoration-primary/30">Log in</button>
-          </p>
         </div>
 
-        <div class="mt-12 flex justify-center gap-2">
-          <div class="h-1.5 w-8 rounded-full bg-primary"></div>
-          <div class="h-1.5 w-1.5 rounded-full bg-primary/20"></div>
-          <div class="h-1.5 w-1.5 rounded-full bg-primary/20"></div>
+        <div className="mt-4 flex items-center justify-between">
+          <button
+            onClick={() => navigate("/login")}
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-white/15 hover:text-white/40 hover:bg-white/5 transition-all duration-300"
+            title="Admin Login"
+          >
+            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>admin_panel_settings</span>
+          </button>
+          <p className="text-xs text-white/30 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm">groups</span>
+            @expanprophetic
+          </p>
+          <div className="w-8"></div>
+        </div>
+
+        <div className="mt-6 flex justify-center gap-1.5">
+          <div className="h-1 w-6 rounded-full bg-accent"></div>
+          <div className="h-1 w-1.5 rounded-full bg-white/10"></div>
+          <div className="h-1 w-1.5 rounded-full bg-white/10"></div>
+          <div className="h-1 w-1.5 rounded-full bg-white/10"></div>
         </div>
       </footer>
     </div>
