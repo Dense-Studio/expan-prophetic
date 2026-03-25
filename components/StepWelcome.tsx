@@ -159,10 +159,111 @@ const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
   /* ── Mobile layout (unchanged) ── */
   const mobileLayout = (
     <div className="lg:hidden min-h-screen bg-cream flex flex-col relative">
-      {/* Subtle pattern overlay for lower content area */}
-      <div className="absolute inset-0 top-[42vh] pointer-events-none z-0" style={{ backgroundImage: "url('/cream-bg-pattern.png')", backgroundSize: "300px 300px", backgroundRepeat: "repeat", opacity: 0.4 }}></div>
+      {/* Subtle pattern overlay for lower content area - only on phones */}
+      <div className="md:hidden absolute inset-0 top-[42vh] pointer-events-none z-0" style={{ backgroundImage: "url('/cream-bg-pattern.png')", backgroundSize: "300px 300px", backgroundRepeat: "repeat", opacity: 0.4 }}></div>
+
+      {/* ── TABLET: full-screen hero with overlaid content ── */}
+      <div className="hidden md:flex lg:hidden min-h-screen relative">
+        {/* Full-screen image */}
+        <div className="absolute inset-0 overflow-hidden">
+          {HERO_IMAGES.map((src, i) => (
+            <img
+              key={src}
+              src={src}
+              alt={`Ministration ${i + 1}`}
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
+              style={{ opacity: i === activeImage ? 1 : 0 }}
+            />
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"></div>
+        </div>
+
+        {/* Overlaid content */}
+        <div className="relative z-10 flex flex-col justify-end w-full px-10 pb-12 pt-8">
+          <div className="absolute top-6 left-8 opacity-0 animate-fade-up" style={{ animationDelay: "0.1s" }}>
+            <div className="pill bg-white/15 backdrop-blur-md text-white border border-white/20">
+              <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+              <span>All-Night Service</span>
+            </div>
+          </div>
+
+          <div className="opacity-0 animate-fade-up" style={{ animationDelay: "0.15s" }}>
+            <p className="text-xs font-bold text-white/60 tracking-[0.2em] uppercase mb-2">
+              Extreme Prophetic Encounter
+            </p>
+            <h1 className="font-serif text-6xl text-white leading-[0.95] tracking-tight mb-1">
+              EXPAN
+            </h1>
+            <h2 className="font-serif italic text-6xl text-white/70 leading-[0.95] tracking-tight">
+              Prophetic
+            </h2>
+          </div>
+
+          <div className="mt-8 opacity-0 animate-fade-up" style={{ animationDelay: "0.25s" }}>
+            <div className="card p-5 bg-white/10 backdrop-blur-xl border border-white/15">
+              <div className="flex items-center gap-3.5 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-white" style={{ fontVariationSettings: "'FILL' 1" }}>calendar_month</span>
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm">Friday, 27th March 2026</p>
+                  <p className="text-white/50 text-xs">8:00 PM — All Night</p>
+                </div>
+              </div>
+              <div className="h-px bg-white/15 mb-4"></div>
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-white" style={{ fontVariationSettings: "'FILL' 1" }}>location_on</span>
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm">Thea Villa Events Hub</p>
+                  <p className="text-white/50 text-xs">Tadisco Down — Takoradi</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 opacity-0 animate-slide-up" style={{ animationDelay: "0.4s" }}>
+            <button
+              onClick={onContinue}
+              className="btn-brand w-full h-14 flex items-center justify-center gap-2 text-base"
+            >
+              <span className="material-symbols-outlined text-xl">person_add</span>
+              Register Now
+            </button>
+
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                onClick={() => navigate("/login")}
+                className="flex items-center justify-center w-8 h-8 rounded-lg text-white/30 hover:text-white/60 hover:bg-white/10 transition-all duration-200"
+                title="Admin Login"
+              >
+                <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>admin_panel_settings</span>
+              </button>
+              <p className="text-[11px] text-white/40 flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">groups</span>
+                @expanprophetic
+              </p>
+              <div className="w-8"></div>
+            </div>
+          </div>
+
+          {/* Dot indicators */}
+          <div className="absolute bottom-12 right-8 flex flex-col gap-2 z-10">
+            {HERO_IMAGES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveImage(i)}
+                className={`w-1.5 rounded-full transition-all duration-500 ${i === activeImage ? "h-5 bg-white" : "h-1.5 bg-white/40"}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── PHONE: original stacked layout ── */}
       {/* Hero Image Section */}
-      <div className="relative w-full" style={{ height: "42vh", minHeight: "280px" }}>
+      <div className="md:hidden relative w-full" style={{ height: "42vh", minHeight: "280px" }}>
         <div className="relative w-full h-full overflow-hidden hero-photo">
           {HERO_IMAGES.map((src, i) => (
             <img
@@ -192,7 +293,7 @@ const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
         </div>
       </div>
 
-      <main className="flex-1 flex flex-col px-6 max-w-lg w-full mx-auto -mt-4 relative z-10">
+      <main className="md:hidden flex-1 flex flex-col px-6 max-w-lg w-full mx-auto -mt-4 relative z-10">
         <div className="opacity-0 animate-fade-up" style={{ animationDelay: "0.15s" }}>
           <p className="text-xs font-bold text-brand tracking-[0.2em] uppercase mb-2">
             Extreme Prophetic Encounter
@@ -214,7 +315,7 @@ const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
         </p>
       </main>
 
-      <footer className="w-full max-w-lg mx-auto px-6 pb-8 pt-4 opacity-0 animate-slide-up" style={{ animationDelay: "0.4s" }}>
+      <footer className="md:hidden w-full max-w-lg mx-auto px-6 pb-8 pt-4 opacity-0 animate-slide-up" style={{ animationDelay: "0.4s" }}>
         {ctaFooter}
       </footer>
     </div>
