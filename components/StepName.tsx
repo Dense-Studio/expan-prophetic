@@ -17,86 +17,114 @@ const StepName: React.FC<StepNameProps> = ({
   const isValid =
     formData.firstName.trim().length > 1 && formData.lastName.trim().length > 1;
 
-  return (
-    <div className="min-h-screen bg-bg-deep bg-gradient-radial flex flex-col">
-      <main className="flex w-full max-w-[480px] flex-col px-6 py-6 flex-grow justify-between mx-auto">
-        <section className="animate-fade-up">
-          <div className="flex w-full flex-row items-center justify-center gap-2 mb-10">
-            <div className="h-1 flex-1 rounded-full bg-white/20"></div>
-            <div className="h-1 flex-1 rounded-full bg-accent"></div>
-            <div className="h-1 flex-1 rounded-full bg-white/8"></div>
-            <div className="h-1 flex-1 rounded-full bg-white/8"></div>
-          </div>
-
-          <div className="mb-6">
-            <button
-              onClick={onBack}
-              className="flex items-center gap-1.5 text-white/60 hover:text-white transition-colors"
-            >
-              <span className="material-symbols-outlined text-lg">arrow_back</span>
-              <span className="text-sm font-medium">Back</span>
-            </button>
-          </div>
-
-          <div className="mb-8">
-            <h1 className="text-white tracking-tight text-[28px] md:text-[36px] font-extrabold leading-tight">
-              Tell us
-              <br />
-              <span className="text-gradient">your name.</span>
-            </h1>
-            <p className="text-sm font-medium mt-2 text-white/40">
-              Welcome! Let's get to know you.
-            </p>
-          </div>
-
-          <div className="space-y-5">
-            <label className="flex flex-col w-full">
-              <span className="text-white/50 text-xs font-bold uppercase tracking-[0.15em] mb-2 ml-1">First Name</span>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                  <span className="material-symbols-outlined text-xl text-white" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
-                </div>
-                <input
-                  autoFocus
-                  className="flex w-full rounded-xl border border-white/8 glass-input h-14 pl-11 pr-4 text-white placeholder:text-white/20 text-base font-medium focus:border-accent/50 focus:ring-0 transition-all outline-none"
-                  placeholder="Enter first name"
-                  type="text"
-                  value={formData.firstName}
-                  onChange={(e) => onUpdate({ firstName: e.target.value })}
-                />
-              </div>
-            </label>
-
-            <label className="flex flex-col w-full">
-              <span className="text-white/50 text-xs font-bold uppercase tracking-[0.15em] mb-2 ml-1">Last Name</span>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                  <span className="material-symbols-outlined text-xl text-white" style={{ fontVariationSettings: "'FILL' 1" }}>badge</span>
-                </div>
-                <input
-                  className="flex w-full rounded-xl border border-white/8 glass-input h-14 pl-11 pr-4 text-white placeholder:text-white/20 text-base font-medium focus:border-accent/50 focus:ring-0 transition-all outline-none"
-                  placeholder="Enter last name"
-                  type="text"
-                  value={formData.lastName}
-                  onChange={(e) => onUpdate({ lastName: e.target.value })}
-                />
-              </div>
-            </label>
-          </div>
-        </section>
-
-        <div className="mt-10 space-y-3 animate-slide-up" style={{ animationDelay: "0.2s" }}>
-          <button
-            onClick={onContinue}
-            disabled={!isValid}
-            className="flex w-full cursor-pointer items-center justify-center rounded-xl h-14 bg-primary text-white text-base font-bold btn-glow active:scale-[0.98] transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <span>Continue</span>
-            <span className="material-symbols-outlined ml-2 text-lg">arrow_forward</span>
-          </button>
-          <p className="text-center text-xs text-white/25">Step 1 of 3</p>
+  const formContent = (
+    <section>
+      {/* Progress bar */}
+      <div className="flex gap-2 mb-6 opacity-0 animate-fade-up">
+        <div className="h-1.5 flex-1 rounded-full bg-ink-faint/20 overflow-hidden">
+          <div className="h-full w-full progress-active"></div>
         </div>
-      </main>
+        <div className="h-1.5 flex-1 rounded-full bg-ink-faint/20 overflow-hidden">
+          <div className="h-full w-full progress-active"></div>
+        </div>
+        <div className="h-1.5 flex-1 rounded-full bg-ink-faint/20"></div>
+        <div className="h-1.5 flex-1 rounded-full bg-ink-faint/20"></div>
+      </div>
+
+      {/* Back button */}
+      <div className="mb-4 opacity-0 animate-fade-up" style={{ animationDelay: "0.05s" }}>
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-ink-muted hover:text-ink transition-colors duration-200 group"
+        >
+          <span className="material-symbols-outlined text-lg transition-transform group-hover:-translate-x-0.5">arrow_back</span>
+          <span className="text-sm font-medium">Back</span>
+        </button>
+      </div>
+
+      {/* Heading */}
+      <div className="mb-5 opacity-0 animate-fade-up" style={{ animationDelay: "0.1s" }}>
+        <h1 className="font-serif text-[32px] md:text-[40px] text-ink leading-tight">
+          Tell us<br />
+          <span className="text-brand italic">your name.</span>
+        </h1>
+        <p className="text-sm text-ink-muted mt-2">
+          Welcome! Let's get to know you.
+        </p>
+      </div>
+
+      {/* Form */}
+      <div className="space-y-5">
+        <label className="flex flex-col opacity-0 animate-stagger-2">
+          <span className="text-ink-light text-xs font-bold uppercase tracking-[0.12em] mb-2 ml-0.5">First Name</span>
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+              <span className="material-symbols-outlined text-xl text-ink-faint group-focus-within:text-brand transition-colors duration-200" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
+            </div>
+            <input
+              autoFocus
+              className="clean-input w-full h-[52px] pl-12 pr-4 text-ink text-base font-medium placeholder:text-ink-faint"
+              placeholder="Enter first name"
+              type="text"
+              value={formData.firstName}
+              onChange={(e) => onUpdate({ firstName: e.target.value })}
+            />
+          </div>
+        </label>
+
+        <label className="flex flex-col opacity-0 animate-stagger-3">
+          <span className="text-ink-light text-xs font-bold uppercase tracking-[0.12em] mb-2 ml-0.5">Last Name</span>
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+              <span className="material-symbols-outlined text-xl text-ink-faint group-focus-within:text-brand transition-colors duration-200" style={{ fontVariationSettings: "'FILL' 1" }}>badge</span>
+            </div>
+            <input
+              className="clean-input w-full h-[52px] pl-12 pr-4 text-ink text-base font-medium placeholder:text-ink-faint"
+              placeholder="Enter last name"
+              type="text"
+              value={formData.lastName}
+              onChange={(e) => onUpdate({ lastName: e.target.value })}
+            />
+          </div>
+        </label>
+      </div>
+    </section>
+  );
+
+  const footerContent = (
+    <div className="mt-auto pt-4 space-y-3 opacity-0 animate-slide-up" style={{ animationDelay: "0.15s" }}>
+      <button
+        onClick={onContinue}
+        disabled={!isValid}
+        className="btn-brand w-full h-[52px] flex items-center justify-center gap-2 text-base"
+      >
+        Continue
+        <span className="material-symbols-outlined text-lg">arrow_forward</span>
+      </button>
+      <p className="text-center text-xs text-ink-faint">Step 1 of 3</p>
+    </div>
+  );
+
+  return (
+    <div className="h-screen bg-cream flex overflow-hidden">
+      {/* Desktop side panel */}
+      <div className="hidden lg:flex lg:w-[45%] xl:w-[50%] relative overflow-hidden">
+        <img src="/assets/image-2.jpg" alt="Ministration" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-dark/70 to-brand/40"></div>
+        <div className="absolute inset-0 flex flex-col justify-end p-12">
+          <p className="text-white/60 text-xs font-bold tracking-[0.2em] uppercase mb-3">Extreme Prophetic Encounter</p>
+          <h2 className="font-serif text-white text-5xl xl:text-6xl leading-[0.95]">
+            EXPAN<br /><span className="italic opacity-80">Prophetic</span>
+          </h2>
+          <p className="text-white/50 text-sm mt-4">Join us for a night of supernatural encounter.</p>
+        </div>
+      </div>
+
+      {/* Content area */}
+      <div className="flex-1 flex flex-col px-6 py-5 lg:px-12 lg:py-6 max-w-[600px] w-full mx-auto lg:mx-0">
+        {formContent}
+        {footerContent}
+      </div>
     </div>
   );
 };

@@ -25,6 +25,7 @@ const OnboardingFlow: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>(
     OnboardingStep.WELCOME,
   );
+  const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
     lastName: "",
@@ -38,6 +39,7 @@ const OnboardingFlow: React.FC = () => {
   });
 
   const nextStep = useCallback(() => {
+    setDirection("forward");
     switch (currentStep) {
       case OnboardingStep.WELCOME:
         setCurrentStep(OnboardingStep.NAME);
@@ -55,6 +57,7 @@ const OnboardingFlow: React.FC = () => {
   }, [currentStep]);
 
   const prevStep = useCallback(() => {
+    setDirection("back");
     switch (currentStep) {
       case OnboardingStep.NAME:
         setCurrentStep(OnboardingStep.WELCOME);
@@ -72,38 +75,42 @@ const OnboardingFlow: React.FC = () => {
     setFormData((prev) => ({ ...prev, ...newData }));
   }, []);
 
+  const transitionClass = direction === "forward" ? "step-enter" : "step-enter-back";
+
   return (
-    <div className="min-h-screen text-white overflow-x-hidden soft-gradient bg-slate-950">
-      {currentStep === OnboardingStep.WELCOME && (
-        <StepWelcome onContinue={nextStep} onUpdate={updateFormData} />
-      )}
-      {currentStep === OnboardingStep.NAME && (
-        <StepName
-          formData={formData}
-          onUpdate={updateFormData}
-          onContinue={nextStep}
-          onBack={prevStep}
-        />
-      )}
-      {currentStep === OnboardingStep.DETAILS && (
-        <StepDetails
-          formData={formData}
-          onUpdate={updateFormData}
-          onContinue={nextStep}
-          onBack={prevStep}
-        />
-      )}
-      {currentStep === OnboardingStep.CONTACT && (
-        <StepContact
-          formData={formData}
-          onUpdate={updateFormData}
-          onContinue={nextStep}
-          onBack={prevStep}
-        />
-      )}
-      {currentStep === OnboardingStep.SUCCESS && (
-        <StepSuccess formData={formData} />
-      )}
+    <div className="min-h-screen bg-cream text-ink overflow-x-hidden">
+      <div key={currentStep} className={transitionClass}>
+        {currentStep === OnboardingStep.WELCOME && (
+          <StepWelcome onContinue={nextStep} onUpdate={updateFormData} />
+        )}
+        {currentStep === OnboardingStep.NAME && (
+          <StepName
+            formData={formData}
+            onUpdate={updateFormData}
+            onContinue={nextStep}
+            onBack={prevStep}
+          />
+        )}
+        {currentStep === OnboardingStep.DETAILS && (
+          <StepDetails
+            formData={formData}
+            onUpdate={updateFormData}
+            onContinue={nextStep}
+            onBack={prevStep}
+          />
+        )}
+        {currentStep === OnboardingStep.CONTACT && (
+          <StepContact
+            formData={formData}
+            onUpdate={updateFormData}
+            onContinue={nextStep}
+            onBack={prevStep}
+          />
+        )}
+        {currentStep === OnboardingStep.SUCCESS && (
+          <StepSuccess formData={formData} />
+        )}
+      </div>
     </div>
   );
 };

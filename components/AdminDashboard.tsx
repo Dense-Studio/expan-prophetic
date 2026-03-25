@@ -1,6 +1,6 @@
 /**
  * AdminDashboard — Admin Panel (/admin)
- * Comprehensive management interface for EXPAN Prophetic.
+ * Dark-themed management interface for EXPAN Prophetic.
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -104,64 +104,68 @@ const AdminDashboard: React.FC = () => {
   const handleLogout = () => {
     sessionStorage.removeItem("expan_admin_auth");
     navigate("/login");
-  };
-
-  if (loading) {
+  };  if (loading) {
     return (
-      <div className="min-h-screen bg-bg-deep flex items-center justify-center">
-        <span className="material-symbols-outlined animate-spin text-primary text-4xl">progress_activity</span>
+      <div className="min-h-screen bg-[#f5f0eb] flex items-center justify-center relative">
+        <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "url('/admin-bg-pattern.png')", backgroundSize: "400px 400px", backgroundRepeat: "repeat", opacity: 0.12 }}></div>
+        <div className="flex flex-col items-center gap-3">
+          <div style={{ width: 32, height: 32, borderWidth: 3, borderColor: "rgba(123,30,52,0.2)", borderTopColor: "#7B1E34", borderRadius: "50%", animation: "spin 0.7s linear infinite", borderStyle: "solid" }}></div>
+          <span className="text-brand/60 text-sm font-medium">Loading registrations…</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-bg-deep text-white font-display">
-      <header className="sticky top-0 z-50 glass-card border-b border-white/5 px-6 h-16 flex items-center justify-between">
+    <div className="min-h-screen bg-[#f5f0eb] font-sans relative">
+      <div className="absolute inset-0 pointer-events-none z-0" style={{ backgroundImage: "url('/admin-bg-pattern.png')", backgroundSize: "400px 400px", backgroundRepeat: "repeat", opacity: 0.12 }}></div>
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-[#f5f0eb]/90 backdrop-blur-xl border-b border-brand/10 px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <span className="material-symbols-outlined text-white text-base">admin_panel_settings</span>
+          <div className="w-9 h-9 rounded-xl bg-brand flex items-center justify-center shadow-lg shadow-brand/20">
+            <span className="material-symbols-outlined text-white text-lg">admin_panel_settings</span>
           </div>
           <div>
-            <h1 className="font-bold text-sm">EXPAN Admin</h1>
-            <p className="text-[10px] text-white/40 uppercase tracking-widest">Registrations Management</p>
+            <h1 className="font-bold text-sm text-brand-dark">EXPAN Admin</h1>
+            <p className="text-[10px] text-brand/50 uppercase tracking-widest">Registrations Management</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={handleExportCSV} className="flex items-center gap-1.5 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/20 px-3 py-1.5 rounded-lg transition-all text-xs font-bold">
+          <button onClick={handleExportCSV} className="flex items-center gap-1.5 bg-brand hover:bg-brand-dark text-white px-3.5 py-2 rounded-lg transition-all text-xs font-bold shadow-sm">
             <span className="material-symbols-outlined text-sm">download</span>
-            Export CSV
+            Export
           </button>
-          <button onClick={handleLogout} className="text-white/40 hover:text-white transition-colors text-xs font-bold">Logout</button>
+          <button onClick={handleLogout} className="text-brand/50 hover:text-brand transition-colors text-xs font-bold px-2 py-2">Logout</button>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4 md:p-6">
+      <main className="max-w-7xl mx-auto p-4 md:p-6 relative z-10">
         <div className="space-y-4 md:space-y-6">
 
           {/* Stats Bar */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="glass-card rounded-xl p-4 border border-white/5 text-center">
-              <p className="text-2xl md:text-3xl font-extrabold text-primary">{registrations.length}</p>
-              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">Total</p>
+            <div className="bg-brand rounded-xl p-4 text-center shadow-md shadow-brand/15">
+              <p className="text-2xl md:text-3xl font-extrabold text-white">{registrations.length}</p>
+              <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">Total</p>
             </div>
-            <div className="glass-card rounded-xl p-4 border border-white/5 text-center">
-              <p className="text-2xl md:text-3xl font-extrabold text-accent">{registrations.filter(r => r.is_student).length}</p>
-              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">Students</p>
+            <div className="bg-brand rounded-xl p-4 text-center shadow-md shadow-brand/15">
+              <p className="text-2xl md:text-3xl font-extrabold text-amber-300">{registrations.filter(r => r.is_student).length}</p>
+              <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">Students</p>
             </div>
-            <div className="glass-card rounded-xl p-4 border border-white/5 text-center">
-              <p className="text-2xl md:text-3xl font-extrabold text-white/70">{filtered.length}</p>
-              <p className="text-[10px] text-white/40 uppercase tracking-wider mt-1">Showing</p>
+            <div className="bg-brand rounded-xl p-4 text-center shadow-md shadow-brand/15">
+              <p className="text-2xl md:text-3xl font-extrabold text-white">{filtered.length}</p>
+              <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">Showing</p>
             </div>
           </div>
 
           {/* Search + Filters */}
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
-              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/30">search</span>
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-brand/40">search</span>
               <input
                 type="text"
                 placeholder="Search by name, phone, or location..."
-                className="w-full h-12 pl-12 pr-4 bg-white/5 border border-white/10 rounded-xl outline-none focus:border-primary/50 transition-all text-sm"
+                className="w-full h-12 pl-12 pr-4 text-sm text-brand-dark placeholder:text-brand/35 bg-white/70 border border-brand/15 rounded-xl focus:outline-none focus:border-brand/40 focus:ring-1 focus:ring-brand/20 transition-all"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
@@ -169,11 +173,10 @@ const AdminDashboard: React.FC = () => {
             <select
               value={filterSource}
               onChange={e => setFilterSource(e.target.value)}
-              className="h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-sm text-white outline-none"
-              style={{ colorScheme: "dark" }}
+              className="h-12 px-4 text-sm text-brand-dark bg-white/70 border border-brand/15 rounded-xl cursor-pointer focus:outline-none focus:border-brand/40"
             >
               <option value="all">All Sources</option>
-              <option value="Posters & Flyers">Posters & Flyers</option>
+              <option value="Posters &amp; Flyers">Posters &amp; Flyers</option>
               <option value="Invited by someone">Invited by someone</option>
               <option value="Social Media">Social Media</option>
               <option value="Other">Other</option>
@@ -181,8 +184,7 @@ const AdminDashboard: React.FC = () => {
             <select
               value={filterStudent}
               onChange={e => setFilterStudent(e.target.value)}
-              className="h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-sm text-white outline-none"
-              style={{ colorScheme: "dark" }}
+              className="h-12 px-4 text-sm text-brand-dark bg-white/70 border border-brand/15 rounded-xl cursor-pointer focus:outline-none focus:border-brand/40"
             >
               <option value="all">All Members</option>
               <option value="yes">Students Only</option>
@@ -190,45 +192,45 @@ const AdminDashboard: React.FC = () => {
             </select>
           </div>
 
-          {error && <div className="p-4 rounded-xl bg-red-400/10 border border-red-400/20 text-red-400 text-sm">{error}</div>}
+          {error && <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 text-sm font-medium">{error}</div>}
 
-          {/* Registration Cards — larger sizing */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Registration Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(reg => (
-              <div key={reg.id} className="glass-card rounded-2xl p-6 border border-white/5 hover:border-white/10 transition-all group">
-                <div className="flex items-center gap-4 mb-5">
-                  <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+              <div key={reg.id} className="bg-[#611828] rounded-2xl p-5 group hover:bg-[#4e1320] transition-all duration-300 shadow-md shadow-brand/15">
+                <div className="flex items-center gap-3.5 mb-4">
+                  <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center text-white font-bold text-sm border border-white/15">
                     {reg.first_name[0]}{reg.last_name[0]}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-base truncate">{reg.first_name} {reg.last_name}</h3>
-                    <p className="text-sm text-white/40">{reg.phone_number}</p>
+                    <h3 className="font-bold text-base text-white truncate">{reg.first_name} {reg.last_name}</h3>
+                    <p className="text-sm text-white/55">{reg.phone_number}</p>
                   </div>
                   {reg.is_student && (
-                    <span className="bg-accent/10 text-accent text-[10px] font-bold px-3 py-1 rounded-full border border-accent/20">STUDENT</span>
+                    <span className="bg-amber-400/20 text-amber-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-400/30">STUDENT</span>
                   )}
                 </div>
 
-                <div className="space-y-3 mb-5">
-                  <p className="text-sm text-white/40 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-base">location_on</span> {reg.location_name || "Unknown Location"}
+                <div className="space-y-2 mb-4">
+                  <p className="text-sm text-white/60 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-white/40">location_on</span> {reg.location_name || "Unknown Location"}
                   </p>
-                  <p className="text-sm text-white/40 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-base">campaign</span> Heard via: <span className="text-white/60">{reg.referral_source || "Not specified"}</span>
+                  <p className="text-sm text-white/60 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-white/40">campaign</span> Heard via: <span className="text-white/80 font-medium">{reg.referral_source || "Not specified"}</span>
                   </p>
                   {reg.is_student && reg.school && (
-                    <p className="text-sm text-white/40 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base">school</span> {reg.school}
+                    <p className="text-sm text-white/60 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-white/40">school</span> {reg.school}
                     </p>
                   )}
-                  <p className="text-xs text-white/20 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm">calendar_today</span> {new Date(reg.created_at).toLocaleDateString()}
+                  <p className="text-xs text-white/35 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base">calendar_today</span> {new Date(reg.created_at).toLocaleDateString()}
                   </p>
                 </div>
 
                 {isSuperAdmin && (
-                  <div className="flex justify-end pt-3 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleDelete(reg.id)} className="text-red-400/60 hover:text-red-400 text-xs font-bold uppercase tracking-widest flex items-center gap-1">
+                  <div className="flex justify-end pt-3 border-t border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleDelete(reg.id)} className="text-red-300/70 hover:text-red-300 text-xs font-bold uppercase tracking-widest flex items-center gap-1">
                       <span className="material-symbols-outlined text-sm">delete</span> Delete
                     </button>
                   </div>
@@ -237,9 +239,9 @@ const AdminDashboard: React.FC = () => {
             ))}
           </div>
           {filtered.length === 0 && !loading && (
-            <div className="text-center py-20 bg-white/2 rounded-3xl border border-dashed border-white/5">
-              <span className="material-symbols-outlined text-5xl text-white/10 mb-4 block">person_search</span>
-              <p className="text-white/20 text-sm">No registered members found.</p>
+            <div className="text-center py-20 bg-white/40 rounded-3xl border-2 border-dashed border-brand/15">
+              <span className="material-symbols-outlined text-5xl text-brand/20 mb-4 block">person_search</span>
+              <p className="text-brand/40 text-sm">No registered members found.</p>
             </div>
           )}
         </div>
