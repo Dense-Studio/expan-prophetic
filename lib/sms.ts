@@ -68,7 +68,7 @@ export async function sendCheckInSms(
 
   const body = {
     sender: "EXPAN",
-    message: `Hi ${firstName}! 🙏\n\nSo glad you made it to EXPAN 2026! Welcome to church.\nSettle in with an open heart and expect an intimate time with God.\n\nDon’t forget to follow our WhatsApp channel to stay connected and updated.\nhttps://whatsapp.com/channel/0029VbCkkB01t90ZSMp8m13a`,
+    message: `Hi ${firstName}! \n\nSo glad you made it to EXPAN 2026! Welcome to church.\nSettle in with an open heart and expect an intimate time with God.\n\nDon’t forget to follow our WhatsApp channel to stay connected and updated.\nhttps://whatsapp.com/channel/0029VbCkkB01t90ZSMp8m13a`,
     recipients: [formattedPhone],
   };
 
