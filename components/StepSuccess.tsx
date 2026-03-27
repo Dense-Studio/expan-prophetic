@@ -46,16 +46,38 @@ const StepSuccess: React.FC<StepSuccessProps> = ({ formData }) => {
         {/* Animated checkmark */}
         <div className="animate-bounce-in mb-8" style={{ opacity: 0 }}>
           <div className="w-24 h-24 mx-auto rounded-3xl bg-brand flex items-center justify-center shadow-lg rotate-3">
-            <svg className="w-12 h-12 text-white" viewBox="0 0 52 52" fill="none">
-              <circle cx="26" cy="26" r="25" stroke="currentColor" strokeWidth="2" className="check-circle" />
-              <path d="M14 27l8 8 16-16" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="check-mark" />
+            <svg
+              className="w-12 h-12 text-white"
+              viewBox="0 0 52 52"
+              fill="none"
+            >
+              <circle
+                cx="26"
+                cy="26"
+                r="25"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="check-circle"
+              />
+              <path
+                d="M14 27l8 8 16-16"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="check-mark"
+              />
             </svg>
           </div>
         </div>
 
-        <div className="opacity-0 animate-fade-up" style={{ animationDelay: "0.3s" }}>
+        <div
+          className="opacity-0 animate-fade-up"
+          style={{ animationDelay: "0.3s" }}
+        >
           <h1 className="font-serif text-[32px] text-ink mb-2">
-            Welcome, <span className="text-brand italic">{formData.firstName}</span>!
+            Welcome,{" "}
+            <span className="text-brand italic">{formData.firstName}</span>!
           </h1>
           <p className="text-ink-muted text-base mb-6">
             You are now part of the EXPAN Prophetic family.
@@ -63,27 +85,51 @@ const StepSuccess: React.FC<StepSuccessProps> = ({ formData }) => {
         </div>
 
         {/* Event card */}
-        <div className="card card-hover p-5 text-left mb-8 opacity-0 animate-fade-up" style={{ animationDelay: "0.5s" }}>
+        <div
+          className="card card-hover p-5 text-left mb-8 opacity-0 animate-fade-up"
+          style={{ animationDelay: "0.5s" }}
+        >
           <p className="text-[10px] font-bold text-brand uppercase tracking-[0.15em] mb-3">
             EXTREME PROPHETIC EXPAN ALL-NIGHT
           </p>
           <div className="flex items-center gap-3 mb-2.5 opacity-0 animate-stagger-3">
             <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center">
-              <span className="material-symbols-outlined text-brand text-base" style={{ fontVariationSettings: "'FILL' 1" }}>calendar_today</span>
+              <span
+                className="material-symbols-outlined text-brand text-base"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                calendar_today
+              </span>
             </div>
-            <span className="text-ink font-semibold text-sm">Friday, 27th March 2026</span>
+            <span className="text-ink font-semibold text-sm">
+              Friday, 27th March 2026
+            </span>
           </div>
           <div className="flex items-center gap-3 mb-2.5 opacity-0 animate-stagger-4">
             <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center">
-              <span className="material-symbols-outlined text-brand text-base" style={{ fontVariationSettings: "'FILL' 1" }}>schedule</span>
+              <span
+                className="material-symbols-outlined text-brand text-base"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                schedule
+              </span>
             </div>
-            <span className="text-ink font-semibold text-sm">8:00 PM Prompt</span>
+            <span className="text-ink font-semibold text-sm">
+              8:00 PM Prompt
+            </span>
           </div>
           <div className="flex items-start gap-3 opacity-0 animate-stagger-5">
             <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-brand text-base" style={{ fontVariationSettings: "'FILL' 1" }}>location_on</span>
+              <span
+                className="material-symbols-outlined text-brand text-base"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                location_on
+              </span>
             </div>
-            <span className="text-ink-light text-sm leading-snug">@Thea Villa Events Hub, Tadisco Down - Takoradi</span>
+            <span className="text-ink-light text-sm leading-snug">
+              @Thea Villa Events Hub, Tadisco Down - Takoradi
+            </span>
           </div>
         </div>
 
@@ -93,7 +139,9 @@ const StepSuccess: React.FC<StepSuccessProps> = ({ formData }) => {
           style={{ animationDelay: "0.7s" }}
         >
           <span className="flex items-center justify-center gap-2">
-            <span className="material-symbols-outlined text-lg text-brand">person_add</span>
+            <span className="material-symbols-outlined text-lg text-brand">
+              person_add
+            </span>
             Register Another Person
           </span>
         </button>

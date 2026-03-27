@@ -10,7 +10,7 @@ export async function sendWelcomeSms(
 
   const body = {
     sender: "EXPAN",
-    message: `Hi ${firstName}! 🙏 Welcome to the EXPAN community. We're blessed to have you. Stay tuned for updates, events, and prophetic words. God bless you!`,
+    message: `Hi ${firstName}! \n\nSo glad you made it to EXPAN 2026! Welcome to church.\nSettle in with an open heart and expect an intimate time with God.\n\nDon’t forget to follow our WhatsApp channel to stay connected and updated.\nhttps://whatsapp.com/channel/0029VbCkkB01t90ZSMp8m13a`,
     recipients: [formattedPhone],
   };
 
@@ -68,7 +68,7 @@ export async function sendCheckInSms(
 
   const body = {
     sender: "EXPAN",
-    message: `Hi ${firstName}! 🙏 Thanks for joining us for our prophetic service today! Stay blessed and have a great week ahead.`,
+    message: `Hi ${firstName}! 🙏\n\nSo glad you made it to EXPAN 2026! Welcome to church.\nSettle in with an open heart and expect an intimate time with God.\n\nDon’t forget to follow our WhatsApp channel to stay connected and updated.\nhttps://whatsapp.com/channel/0029VbCkkB01t90ZSMp8m13a`,
     recipients: [formattedPhone],
   };
 

@@ -200,7 +200,7 @@ const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
           </div>
 
           <div className="mt-8 opacity-0 animate-fade-up" style={{ animationDelay: "0.25s" }}>
-            <div className="card p-5 bg-white/10 backdrop-blur-xl border border-white/15">
+            <div className="card p-5 bg-black/30 backdrop-blur-2xl border border-white/15" style={{ background: 'none', backgroundColor: 'rgba(0,0,0,0.3)', boxShadow: 'none' }}>
               <div className="flex items-center gap-3.5 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-white" style={{ fontVariationSettings: "'FILL' 1" }}>calendar_month</span>
