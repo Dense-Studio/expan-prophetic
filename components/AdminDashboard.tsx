@@ -15,6 +15,8 @@ const AdminDashboard: React.FC = () => {
   const [filterSource, setFilterSource] = useState<string>("all");
   const [filterStudent, setFilterStudent] = useState<string>("all");
   const [isSuperAdmin] = useState(() => sessionStorage.getItem("expan_admin_role") === "superadmin");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (sessionStorage.getItem("expan_admin_auth") !== "true") {
@@ -65,13 +67,22 @@ const AdminDashboard: React.FC = () => {
     return items;
   }, [registrations, searchQuery, filterSource, filterStudent]);
 
-  const handleDelete = async (id: string) => {
-    if (!isSuperAdmin || !confirm("Delete this registration?")) return;
+  const handleDelete = (id: string) => {
+    if (!isSuperAdmin) return;
+    setDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    setIsDeleting(true);
     try {
-      await deleteRegistration(id);
-      setRegistrations(prev => prev.filter(r => r.id !== id));
+      await deleteRegistration(deleteId);
+      setRegistrations(prev => prev.filter(r => r.id !== deleteId));
+      setDeleteId(null);
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -246,6 +257,44 @@ const AdminDashboard: React.FC = () => {
           )}
         </div>
       </main>
+      {/* Delete Confirmation Modal */}
+      {deleteId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-brand-dark/40 backdrop-blur-sm" onClick={() => !isDeleting && setDeleteId(null)}></div>
+          <div className="bg-[#611828] w-full max-w-sm rounded-3xl p-6 relative z-10 shadow-2xl border border-white/10 animate-scale-in">
+            <div className="w-16 h-16 rounded-2xl bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+              <span className="material-symbols-outlined text-red-400 text-3xl">delete_forever</span>
+            </div>
+            <h3 className="text-white text-xl font-bold text-center mb-2">Delete Registration?</h3>
+            <p className="text-white/60 text-center text-sm mb-8 px-2">
+              This action cannot be undone. All data for this attendee will be permanently removed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                disabled={isDeleting}
+                onClick={() => setDeleteId(null)}
+                className="flex-1 h-12 rounded-xl border border-white/10 text-white/70 font-bold text-sm hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={isDeleting}
+                onClick={confirmDelete}
+                className="flex-1 h-12 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold text-sm transition-all shadow-lg shadow-red-500/20 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                    Deleting...
+                  </>
+                ) : (
+                  "Confirm"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
