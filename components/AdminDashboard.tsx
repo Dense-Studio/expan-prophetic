@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchRegistrations, deleteRegistration, Registration } from "../lib/adminDb";
 import { EVENTS, getEventLabel } from "../lib/event";
+import BulkLiveSmsPanel from "./BulkLiveSmsPanel";
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -92,6 +93,20 @@ const AdminDashboard: React.FC = () => {
       (r.event_key || "expan-all-night-2026-03-27") === filterEvent
     );
   }, [registrations, filterEvent]);
+
+  const smsAudienceLabel = useMemo(() => {
+    const edition = filterEvent === "all"
+      ? "all EXPAN editions"
+      : `${getEventLabel(filterEvent)} registrations`;
+    const hasExtraFilters = Boolean(
+      searchQuery.trim() ||
+      filterSource !== "all" ||
+      filterStudent !== "all" ||
+      filterLanguage !== "all" ||
+      filterAttendanceCount !== "all"
+    );
+    return hasExtraFilters ? `${edition}, matching the active filters` : edition;
+  }, [filterEvent, searchQuery, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
 
   const handleDelete = (id: string) => {
     if (!isSuperAdmin) return;
@@ -263,6 +278,11 @@ const AdminDashboard: React.FC = () => {
               <option value="3">Third or More</option>
             </select>
           </div>
+
+          <BulkLiveSmsPanel
+            phoneNumbers={filtered.map((registration) => registration.phone_number)}
+            audienceLabel={smsAudienceLabel}
+          />
 
           {error && <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 text-sm font-medium">{error}</div>}
 
