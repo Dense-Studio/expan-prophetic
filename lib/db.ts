@@ -1,15 +1,16 @@
 /**
  * Registration Database Operations
  * Handles saving new member registrations to Supabase.
- * Performs JS-level duplicate prevention using phone number as the unique key.
- * Returns the registration ID and phone number for downstream use (e.g. auto-attendance).
+ * Keeps registration for first-time guests by rejecting duplicate phone numbers.
  */
 import { supabase } from "./supabaseClient";
 import type { FormData } from "../types";
+import { EVENT } from "./event";
 
 /**
  * Save a registration to the Supabase `registrations` table.
- * Checks for duplicate phone numbers before inserting.
+ * Checks for duplicate phone numbers before inserting. Returning guests should
+ * use the event check-in flow instead of overwriting their original profile.
  */
 export async function saveRegistration(
   data: FormData,
@@ -20,10 +21,13 @@ export async function saveRegistration(
     phone_number: data.phoneNumber,
     location_name: data.locationName || null,
     referral_source: data.referralSource || null,
+    preferred_language: data.preferredLanguage,
+    expan_attendance_count: data.expanAttendanceCount,
     is_student: data.isStudent,
     school: data.school || null,
     latitude: data.latitude,
     longitude: data.longitude,
+    event_key: EVENT.key,
   };
 
   // JS-level Duplicate Prevention: Check if the phone number already exists
@@ -42,20 +46,9 @@ export async function saveRegistration(
   }
 
   if (existing) {
-    // Update existing profile
-    const { error: updateError } = await supabase
-      .from("expan_registrations")
-      .update(payload)
-      .eq("id", existing.id);
-
-    if (updateError) {
-      console.error("❌ Failed to update registration:", updateError.message);
-      throw new Error(`Database update error: ${updateError.message}`);
-    }
-    console.log(
-      "✅ Registration updated successfully for existing phone number",
+    throw new Error(
+      "This phone number is already registered. Please use Check In instead.",
     );
-    return { id: existing.id, phoneNumber: payload.phone_number };
   } else {
     // Insert new profile
     const { data: inserted, error: insertError } = await supabase

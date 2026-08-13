@@ -5,6 +5,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchRegistrations, deleteRegistration, Registration } from "../lib/adminDb";
+import { EVENTS, getEventLabel } from "../lib/event";
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -12,8 +13,11 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterEvent, setFilterEvent] = useState<string>("all");
   const [filterSource, setFilterSource] = useState<string>("all");
   const [filterStudent, setFilterStudent] = useState<string>("all");
+  const [filterLanguage, setFilterLanguage] = useState<string>("all");
+  const [filterAttendanceCount, setFilterAttendanceCount] = useState<string>("all");
   const [isSuperAdmin] = useState(() => sessionStorage.getItem("expan_admin_role") === "superadmin");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -41,6 +45,13 @@ const AdminDashboard: React.FC = () => {
   const filtered = useMemo(() => {
     let items = registrations;
 
+    // Records created before event tracking was introduced belong to March.
+    if (filterEvent !== "all") {
+      items = items.filter(r =>
+        (r.event_key || "expan-all-night-2026-03-27") === filterEvent
+      );
+    }
+
     // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -64,8 +75,23 @@ const AdminDashboard: React.FC = () => {
       items = items.filter(r => !r.is_student);
     }
 
+    if (filterLanguage !== "all") {
+      items = items.filter(r => r.preferred_language === filterLanguage);
+    }
+
+    if (filterAttendanceCount !== "all") {
+      items = items.filter(r => r.expan_attendance_count === Number(filterAttendanceCount));
+    }
+
     return items;
-  }, [registrations, searchQuery, filterSource, filterStudent]);
+  }, [registrations, searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
+
+  const editionRegistrations = useMemo(() => {
+    if (filterEvent === "all") return registrations;
+    return registrations.filter(r =>
+      (r.event_key || "expan-all-night-2026-03-27") === filterEvent
+    );
+  }, [registrations, filterEvent]);
 
   const handleDelete = (id: string) => {
     if (!isSuperAdmin) return;
@@ -87,11 +113,14 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    const headers = ["First Name", "Last Name", "Phone", "Location", "Referral Source", "Student", "School", "Registered At"];
+    const headers = ["EXPAN Edition", "First Name", "Last Name", "Phone", "Preferred Language", "EXPAN Attendance", "Location", "Referral Source", "Student", "School", "Registered At"];
     const rows = filtered.map(r => [
+      getEventLabel(r.event_key),
       r.first_name,
       r.last_name,
       r.phone_number,
+      r.preferred_language || "",
+      r.expan_attendance_count ? (r.expan_attendance_count >= 3 ? "Third or more" : r.expan_attendance_count === 2 ? "Second" : "First") : "",
       r.location_name || "",
       r.referral_source || "",
       r.is_student ? "Yes" : "No",
@@ -107,7 +136,8 @@ const AdminDashboard: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `expan-registrations-${new Date().toISOString().split("T")[0]}.csv`;
+    const edition = filterEvent === "all" ? "all-events" : getEventLabel(filterEvent).toLowerCase().replace(/\s+/g, "-");
+    link.download = `expan-${edition}-registrations-${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -156,11 +186,11 @@ const AdminDashboard: React.FC = () => {
           {/* Stats Bar */}
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-brand rounded-xl p-4 text-center shadow-md shadow-brand/15">
-              <p className="text-2xl md:text-3xl font-extrabold text-white">{registrations.length}</p>
-              <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">Total</p>
+              <p className="text-2xl md:text-3xl font-extrabold text-white">{editionRegistrations.length}</p>
+              <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">In Edition</p>
             </div>
             <div className="bg-brand rounded-xl p-4 text-center shadow-md shadow-brand/15">
-              <p className="text-2xl md:text-3xl font-extrabold text-amber-300">{registrations.filter(r => r.is_student).length}</p>
+              <p className="text-2xl md:text-3xl font-extrabold text-amber-300">{editionRegistrations.filter(r => r.is_student).length}</p>
               <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">Students</p>
             </div>
             <div className="bg-brand rounded-xl p-4 text-center shadow-md shadow-brand/15">
@@ -170,7 +200,7 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Search + Filters */}
-          <div className="flex flex-col md:flex-row gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <div className="relative flex-1">
               <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-brand/40">search</span>
               <input
@@ -181,6 +211,17 @@ const AdminDashboard: React.FC = () => {
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
+            <select
+              value={filterEvent}
+              onChange={e => setFilterEvent(e.target.value)}
+              className="h-12 px-4 text-sm font-semibold text-brand-dark bg-white/90 border-2 border-brand/25 rounded-xl cursor-pointer focus:outline-none focus:border-brand"
+              aria-label="Filter by EXPAN edition"
+            >
+              <option value="all">All EXPAN Editions</option>
+              {Object.values(EVENTS).map(event => (
+                <option key={event.key} value={event.key}>{event.shortName}</option>
+              ))}
+            </select>
             <select
               value={filterSource}
               onChange={e => setFilterSource(e.target.value)}
@@ -201,6 +242,26 @@ const AdminDashboard: React.FC = () => {
               <option value="yes">Students Only</option>
               <option value="no">Non-Students</option>
             </select>
+            <select
+              value={filterLanguage}
+              onChange={e => setFilterLanguage(e.target.value)}
+              className="h-12 px-4 text-sm text-brand-dark bg-white/70 border border-brand/15 rounded-xl cursor-pointer focus:outline-none focus:border-brand/40"
+              aria-label="Filter by preferred language"
+            >
+              <option value="all">All Languages</option>
+              {['English', 'Twi', 'Fante', 'Ga', 'Ewe'].map(language => <option key={language} value={language}>{language}</option>)}
+            </select>
+            <select
+              value={filterAttendanceCount}
+              onChange={e => setFilterAttendanceCount(e.target.value)}
+              className="h-12 px-4 text-sm text-brand-dark bg-white/70 border border-brand/15 rounded-xl cursor-pointer focus:outline-none focus:border-brand/40"
+              aria-label="Filter by EXPAN attendance count"
+            >
+              <option value="all">All Attendance History</option>
+              <option value="1">First EXPAN</option>
+              <option value="2">Second EXPAN</option>
+              <option value="3">Third or More</option>
+            </select>
           </div>
 
           {error && <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 text-sm font-medium">{error}</div>}
@@ -217,9 +278,12 @@ const AdminDashboard: React.FC = () => {
                     <h3 className="font-bold text-base text-white truncate">{reg.first_name} {reg.last_name}</h3>
                     <p className="text-sm text-white/55">{reg.phone_number}</p>
                   </div>
-                  {reg.is_student && (
-                    <span className="bg-amber-400/20 text-amber-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-400/30">STUDENT</span>
-                  )}
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span className="bg-white/15 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-white/20">{getEventLabel(reg.event_key)}</span>
+                    {reg.is_student && (
+                      <span className="bg-amber-400/20 text-amber-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-400/30">STUDENT</span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2 mb-4">
@@ -228,6 +292,12 @@ const AdminDashboard: React.FC = () => {
                   </p>
                   <p className="text-sm text-white/60 flex items-center gap-2">
                     <span className="material-symbols-outlined text-base text-white/40">campaign</span> Heard via: <span className="text-white/80 font-medium">{reg.referral_source || "Not specified"}</span>
+                  </p>
+                  <p className="text-sm text-white/60 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-white/40">translate</span> Language: <span className="text-white/80 font-medium">{reg.preferred_language || "Not specified"}</span>
+                  </p>
+                  <p className="text-sm text-white/60 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-white/40">event_repeat</span> EXPAN history: <span className="text-white/80 font-medium">{reg.expan_attendance_count ? (reg.expan_attendance_count >= 3 ? "Third or more" : reg.expan_attendance_count === 2 ? "Second" : "First") : "Not specified"}</span>
                   </p>
                   {reg.is_student && reg.school && (
                     <p className="text-sm text-white/60 flex items-center gap-2">

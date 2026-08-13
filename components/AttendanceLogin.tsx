@@ -1,30 +1,38 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { findByPhone, recordAttendance } from "../lib/attendance";
+import { findByPhone, recordEventCheckIn } from "../lib/attendance";
+import { EVENT } from "../lib/event";
 import { sendCheckInSms } from "../lib/sms";
+import type { ExpanAttendanceCount } from "../types";
+
+interface CheckInSuccess {
+  name: string;
+  alreadyCheckedIn: boolean;
+  smsSent: boolean;
+}
 
 const AttendanceLogin: React.FC = () => {
   const navigate = useNavigate();
   const [phone, setPhone] = useState("");
+  const [attendanceCount, setAttendanceCount] = useState<ExpanAttendanceCount | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [success, setSuccess] = useState<{
-    name: string;
-    photoUrl: string | null;
-    alreadyCheckedIn: boolean;
-  } | null>(null);
+  const [success, setSuccess] = useState<CheckInSuccess | null>(null);
 
-  const isSunday = new Date().getDay() === 0;
+  const digits = phone.replace(/\D/g, "");
+  const isValidPhone =
+    (digits.length === 10 && digits.startsWith("0")) ||
+    (digits.length === 12 && digits.startsWith("233"));
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value.replace(/\D/g, "");
-    setPhone(rawValue);
+    setPhone(e.target.value.replace(/\D/g, "").slice(0, 12));
     setNotFound(false);
+    setError(null);
   };
 
-  const handleLogin = async () => {
-    if (phone.length < 10 || isSubmitting) return;
+  const handleCheckIn = async () => {
+    if (!isValidPhone || !attendanceCount || isSubmitting) return;
 
     setIsSubmitting(true);
     setError(null);
@@ -32,158 +40,175 @@ const AttendanceLogin: React.FC = () => {
 
     try {
       const registration = await findByPhone(phone);
-
       if (!registration) {
         setNotFound(true);
         return;
       }
 
-      const result = await recordAttendance(registration.id, phone);
+      const result = await recordEventCheckIn(
+        registration.id,
+        registration.phone_number,
+        attendanceCount,
+      );
 
+      let smsSent = result.alreadyCheckedIn;
       if (!result.alreadyCheckedIn) {
-        sendCheckInSms(phone, registration.first_name).catch(console.error);
+        try {
+          await sendCheckInSms(registration.phone_number, registration.first_name);
+          smsSent = true;
+        } catch (smsError) {
+          console.warn("Check-in recorded, but SMS failed:", smsError);
+        }
       }
 
       setSuccess({
         name: `${registration.first_name} ${registration.last_name}`,
-        photoUrl: registration.photo_url,
         alreadyCheckedIn: result.alreadyCheckedIn,
+        smsSent,
       });
-    } catch (err: any) {
-      setError(err.message || "Something went wrong.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const mainContent = (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 lg:px-16 max-w-lg w-full mx-auto lg:mx-0">
-      {/* Brand mark */}
-      <div className="mb-6 animate-bounce-in" style={{ opacity: 0 }}>
-        <div className="w-20 h-20 rounded-2xl bg-brand flex items-center justify-center shadow-md">
-          <span className="material-symbols-outlined text-4xl text-white" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-        </div>
-      </div>
+  return (
+    <div className="min-h-screen bg-cream lg:grid lg:grid-cols-[minmax(420px,1fr)_minmax(430px,1fr)]">
+      <section className="hidden lg:flex bg-[#24002f] items-center justify-center min-h-screen">
+        <img src={EVENT.flyer} alt={`${EVENT.name} flyer`} className="w-full h-screen object-contain" />
+      </section>
 
-      <div className="text-center mb-8 opacity-0 animate-fade-up" style={{ animationDelay: "0.12s" }}>
-        <p className="text-brand text-xs font-bold tracking-[0.2em] uppercase mb-2">Sunday Attendance</p>
-        <h1 className="font-serif text-[32px] text-ink">
-          Welcome <span className="text-brand italic">Back!</span>
-        </h1>
-      </div>
+      <main className="flex min-h-screen flex-col px-6 py-6 sm:px-10 lg:px-16 max-w-xl w-full mx-auto">
+        <button
+          onClick={() => navigate("/")}
+          className="self-start flex items-center gap-1.5 text-ink-muted hover:text-ink transition-colors"
+        >
+          <span className="material-symbols-outlined text-lg">arrow_back</span>
+          <span className="text-sm font-medium">Back</span>
+        </button>
 
-      {success ? (
-        <div className="w-full animate-scale-in" style={{ opacity: 0 }}>
-          <div className="card p-6 text-center">
-            <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4 border-2 border-emerald-200">
-              {success.photoUrl ? (
-                <img src={success.photoUrl} alt="" className="w-20 h-20 rounded-full object-cover" />
-              ) : (
+        <div className="flex-1 flex flex-col justify-center py-10">
+          <div className="mb-7 opacity-0 animate-fade-up">
+            <div className="w-16 h-16 rounded-2xl bg-brand flex items-center justify-center shadow-md mb-5">
+              <span className="material-symbols-outlined text-3xl text-white" style={{ fontVariationSettings: "'FILL' 1" }}>how_to_reg</span>
+            </div>
+            <p className="text-brand text-xs font-bold tracking-[0.2em] uppercase mb-2">{EVENT.name}</p>
+            <h1 className="font-serif text-[36px] sm:text-[42px] text-ink leading-tight">
+              Welcome <span className="text-brand italic">back!</span>
+            </h1>
+            <p className="text-ink-muted text-sm mt-3">
+              Enter the phone number you used for a previous EXPAN registration.
+            </p>
+          </div>
+
+          {success ? (
+            <div className="card p-6 text-center animate-scale-in" style={{ opacity: 0 }}>
+              <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4 border-2 border-emerald-200">
                 <svg className="w-10 h-10 text-emerald-500" viewBox="0 0 52 52" fill="none">
                   <circle cx="26" cy="26" r="25" stroke="currentColor" strokeWidth="2" className="check-circle" />
                   <path d="M14 27l8 8 16-16" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="check-mark" />
                 </svg>
+              </div>
+              <h2 className="text-ink text-xl font-bold mb-1">{success.name}</h2>
+              <p className={success.alreadyCheckedIn ? "text-amber-600 text-sm font-medium" : "text-emerald-600 text-sm font-medium"}>
+                {success.alreadyCheckedIn ? "You are already checked in for this program." : "Your check-in is confirmed!"}
+              </p>
+              {!success.alreadyCheckedIn && (
+                <p className={`text-xs mt-2 ${success.smsSent ? "text-ink-muted" : "text-amber-600"}`}>
+                  {success.smsSent ? "A confirmation SMS has been sent to you." : "Your check-in was saved, but the confirmation SMS could not be sent."}
+                </p>
               )}
+              <button
+                onClick={() => { setSuccess(null); setPhone(""); setAttendanceCount(null); }}
+                className="mt-6 w-full h-12 card text-ink font-semibold hover:bg-cream-dark active:scale-[0.98]"
+              >
+                Check In Another Person
+              </button>
             </div>
-            <h2 className="text-ink text-xl font-bold mb-1">{success.name}</h2>
-            <p className={success.alreadyCheckedIn ? "text-amber-600 text-sm font-medium" : "text-emerald-600 text-sm font-medium"}>
-              {success.alreadyCheckedIn ? "Already checked in today" : "Attendance recorded!"}
-            </p>
-            <button
-              onClick={() => { setSuccess(null); setPhone(""); }}
-              className="mt-6 w-full h-12 card text-ink font-semibold hover:bg-cream-dark transition-colors active:scale-[0.98]"
-            >
-              Back
-            </button>
-          </div>
-        </div>
-      ) : !isSunday ? (
-        <div className="w-full opacity-0 animate-fade-up" style={{ animationDelay: "0.15s" }}>
-          <div className="card p-6 text-center">
-            <div className="w-14 h-14 rounded-xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
-              <span className="material-symbols-outlined text-2xl text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>event</span>
-            </div>
-            <h2 className="text-ink font-bold text-lg mb-2">See you on Sunday!</h2>
-            <p className="text-ink-muted text-sm">Attendance login is only available on <span className="text-brand font-semibold">Sundays</span>.</p>
-            <button onClick={() => navigate("/")} className="mt-6 btn-brand w-full h-12 text-sm">New here? Register</button>
-          </div>
-        </div>
-      ) : (
-        <div className="w-full space-y-5 opacity-0 animate-fade-up" style={{ animationDelay: "0.15s" }}>
-          <label className="flex flex-col text-left">
-            <span className="text-ink-light text-xs font-bold uppercase tracking-[0.12em] mb-2">Phone Number</span>
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                <span className={`material-symbols-outlined text-xl transition-colors ${isSubmitting ? "text-brand animate-pulse" : "text-ink-faint group-focus-within:text-brand"}`}>call</span>
-              </div>
-              <input
-                autoFocus
-                className="clean-input w-full h-14 pl-12 pr-4 text-ink placeholder:text-ink-faint"
-                placeholder="024 123 4567"
-                type="tel"
-                value={phone}
-                onChange={handlePhoneChange}
-              />
-            </div>
-          </label>
+          ) : (
+            <div className="space-y-5 opacity-0 animate-fade-up" style={{ animationDelay: "0.12s" }}>
+              <label className="flex flex-col text-left">
+                <span className="text-ink-light text-xs font-bold uppercase tracking-[0.12em] mb-2">Phone Number</span>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                    <span className={`material-symbols-outlined text-xl ${isSubmitting ? "text-brand animate-pulse" : "text-ink-faint group-focus-within:text-brand"}`}>call</span>
+                  </div>
+                  <input
+                    autoFocus
+                    className="clean-input w-full h-14 pl-12 pr-4 text-ink placeholder:text-ink-faint"
+                    placeholder="024 123 4567"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={phone}
+                    onChange={handlePhoneChange}
+                    onKeyDown={(event) => { if (event.key === "Enter") void handleCheckIn(); }}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </label>
 
-          {notFound && (
-            <div className="card p-5 text-center border-2 border-amber-200 animate-slide-in-right">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <span className="material-symbols-outlined text-amber-500">search_off</span>
-                <h3 className="text-ink font-bold">Number not found</h3>
-              </div>
-              <button onClick={() => navigate("/")} className="mt-3 btn-brand w-full h-12 text-sm">Register Now</button>
+              <fieldset>
+                <legend className="text-ink-light text-xs font-bold uppercase tracking-[0.12em] mb-2">
+                  Including today, which EXPAN is this for you?
+                </legend>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: 1 as const, label: "First" },
+                    { value: 2 as const, label: "Second" },
+                    { value: 3 as const, label: "Third+" },
+                  ]).map((option) => {
+                    const selected = attendanceCount === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => setAttendanceCount(option.value)}
+                        disabled={isSubmitting}
+                        className={`h-12 rounded-xl border-2 text-sm font-bold transition-all active:scale-[0.98] ${selected ? "border-brand bg-brand text-white" : "border-ink-faint/30 bg-white text-ink hover:border-brand/40"}`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              {notFound && (
+                <div className="card p-5 text-center border-2 border-amber-200 animate-slide-in-right">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <span className="material-symbols-outlined text-amber-500">search_off</span>
+                    <h3 className="text-ink font-bold">Number not found</h3>
+                  </div>
+                  <p className="text-ink-muted text-xs">If this is your first EXPAN program, please register.</p>
+                  <button onClick={() => navigate("/")} className="mt-4 w-full h-12 rounded-[0.875rem] border-2 border-brand text-brand font-bold hover:bg-brand-50 transition-colors">Register</button>
+                </div>
+              )}
+
+              {error && (
+                <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-4 py-3 rounded-xl border border-red-200">
+                  <span className="material-symbols-outlined text-lg">error</span>
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <button
+                onClick={() => void handleCheckIn()}
+                disabled={!isValidPhone || !attendanceCount || isSubmitting}
+                className="btn-brand w-full h-14 flex items-center justify-center text-base"
+              >
+                {isSubmitting ? <span className="flex items-center gap-3"><span className="spinner" />Checking in...</span> : "Check In"}
+              </button>
             </div>
           )}
-
-          {error && (
-            <div className="flex items-center gap-2 text-red-600 text-sm animate-slide-in-right bg-red-50 px-4 py-3 rounded-xl border border-red-200">
-              <span className="material-symbols-outlined text-lg">error</span>
-              <span>{error}</span>
-            </div>
-          )}
-
-          <button
-            onClick={handleLogin}
-            disabled={phone.length < 10 || isSubmitting}
-            className="btn-brand w-full h-14 flex items-center justify-center text-base"
-          >
-            {isSubmitting ? (
-              <span className="flex items-center gap-3">
-                <span className="spinner"></span>
-                Checking in...
-              </span>
-            ) : (
-              "Check In"
-            )}
-          </button>
         </div>
-      )}
 
-      <footer className="mt-auto pt-8 pb-6 text-ink-faint text-xs flex items-center gap-1.5">
-        <span className="material-symbols-outlined text-sm">groups</span> @expanprophetic
-      </footer>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-cream flex">
-      {/* Desktop side panel */}
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[50%] relative overflow-hidden">
-        <img src="/assets/image-1.jpg" alt="Ministration" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-dark/70 to-brand/40"></div>
-        <div className="absolute inset-0 flex flex-col justify-end p-12">
-          <p className="text-white/60 text-xs font-bold tracking-[0.2em] uppercase mb-3">Extreme Prophetic Encounter</p>
-          <h2 className="font-serif text-white text-5xl xl:text-6xl leading-[0.95]">
-            EXPAN<br /><span className="italic opacity-80">Prophetic</span>
-          </h2>
-          <p className="text-white/50 text-sm mt-4">Welcome back to the family.</p>
-        </div>
-      </div>
-
-      {/* Content area */}
-      {mainContent}
+        <footer className="pt-4 text-ink-faint text-xs flex justify-center items-center gap-1.5">
+          <span className="material-symbols-outlined text-sm">groups</span> @expanprophetic
+        </footer>
+      </main>
     </div>
   );
 };

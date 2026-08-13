@@ -11,10 +11,13 @@ export interface Registration {
   phone_number: string;
   location_name: string | null;
   referral_source: string | null;
+  preferred_language: string | null;
+  expan_attendance_count: number | null;
   is_student: boolean;
   school: string | null;
   latitude: number | null;
   longitude: number | null;
+  event_key: string | null;
   created_at: string;
 }
 

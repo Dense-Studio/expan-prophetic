@@ -24,9 +24,7 @@ const StepName: React.FC<StepNameProps> = ({
         <div className="h-1.5 flex-1 rounded-full bg-ink-faint/20 overflow-hidden">
           <div className="h-full w-full progress-active"></div>
         </div>
-        <div className="h-1.5 flex-1 rounded-full bg-ink-faint/20 overflow-hidden">
-          <div className="h-full w-full progress-active"></div>
-        </div>
+        <div className="h-1.5 flex-1 rounded-full bg-ink-faint/20"></div>
         <div className="h-1.5 flex-1 rounded-full bg-ink-faint/20"></div>
         <div className="h-1.5 flex-1 rounded-full bg-ink-faint/20"></div>
       </div>
@@ -101,7 +99,7 @@ const StepName: React.FC<StepNameProps> = ({
         Continue
         <span className="material-symbols-outlined text-lg">arrow_forward</span>
       </button>
-      <p className="text-center text-xs text-ink-faint">Step 1 of 3</p>
+      <p className="text-center text-xs text-ink-faint">Step 1 of 4</p>
     </div>
   );
 

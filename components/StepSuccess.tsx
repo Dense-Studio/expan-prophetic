@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import confetti from "canvas-confetti";
 import { FormData } from "../types";
+import { EVENT } from "../lib/event";
 
 interface StepSuccessProps {
   formData: FormData;
@@ -80,7 +81,7 @@ const StepSuccess: React.FC<StepSuccessProps> = ({ formData }) => {
             <span className="text-brand italic">{formData.firstName}</span>!
           </h1>
           <p className="text-ink-muted text-base mb-6">
-            You are now part of the EXPAN Prophetic family.
+            Your place at the upcoming EXPAN All-Night is confirmed.
           </p>
         </div>
 
@@ -90,7 +91,7 @@ const StepSuccess: React.FC<StepSuccessProps> = ({ formData }) => {
           style={{ animationDelay: "0.5s" }}
         >
           <p className="text-[10px] font-bold text-brand uppercase tracking-[0.15em] mb-3">
-            EXTREME PROPHETIC EXPAN ALL-NIGHT
+            {EVENT.name}
           </p>
           <div className="flex items-center gap-3 mb-2.5 opacity-0 animate-stagger-3">
             <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center">
@@ -102,7 +103,7 @@ const StepSuccess: React.FC<StepSuccessProps> = ({ formData }) => {
               </span>
             </div>
             <span className="text-ink font-semibold text-sm">
-              Friday, 27th March 2026
+              {EVENT.date}
             </span>
           </div>
           <div className="flex items-center gap-3 mb-2.5 opacity-0 animate-stagger-4">
@@ -115,7 +116,7 @@ const StepSuccess: React.FC<StepSuccessProps> = ({ formData }) => {
               </span>
             </div>
             <span className="text-ink font-semibold text-sm">
-              8:00 PM Prompt
+              {EVENT.time}
             </span>
           </div>
           <div className="flex items-start gap-3 opacity-0 animate-stagger-5">
@@ -128,7 +129,7 @@ const StepSuccess: React.FC<StepSuccessProps> = ({ formData }) => {
               </span>
             </div>
             <span className="text-ink-light text-sm leading-snug">
-              @Thea Villa Events Hub, Tadisco Down - Takoradi
+              @{EVENT.venue}, {EVENT.address}
             </span>
           </div>
         </div>

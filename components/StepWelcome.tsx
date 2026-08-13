@@ -1,12 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { EVENT } from "../lib/event";
 import { FormData } from "../types";
 
-const HERO_IMAGES = [
-  "/assets/image-1.jpg",
-  "/assets/image-2.jpg",
-  "/assets/image-3.jpg",
-  "/assets/image-4.jpg",
+const PHOTO_SLIDES = [
+  { src: "/assets/image-1.jpg", alt: "EXPAN ministration" },
+  { src: "/assets/image-2.jpg", alt: "EXPAN worship moment" },
+  { src: "/assets/image-3.jpg", alt: "EXPAN ministration" },
+  { src: "/assets/image-4.jpg", alt: "EXPAN worship moment" },
+];
+
+const TABLET_SLIDES = [
+  ...PHOTO_SLIDES.slice(0, 2),
+  { src: EVENT.flyer, alt: `${EVENT.name} flyer`, contain: true },
+  ...PHOTO_SLIDES.slice(2),
 ];
 
 interface StepWelcomeProps {
@@ -16,316 +23,190 @@ interface StepWelcomeProps {
 
 const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
   const navigate = useNavigate();
-  const [activeImage, setActiveImage] = useState(0);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [isPhone, setIsPhone] = useState(() => window.innerWidth < 768);
+
+  const slides = isPhone ? PHOTO_SLIDES : TABLET_SLIDES;
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveImage((prev) => (prev + 1) % HERO_IMAGES.length);
-    }, 5000);
-    return () => clearInterval(timer);
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateViewport = (event: MediaQueryListEvent | MediaQueryList) => {
+      setIsPhone(event.matches);
+      setActiveSlide(0);
+    };
+
+    updateViewport(mediaQuery);
+    mediaQuery.addEventListener("change", updateViewport);
+    return () => mediaQuery.removeEventListener("change", updateViewport);
   }, []);
 
-  /* ── Shared content blocks ── */
-  const eventCard = (
-    <div className="card p-5">
-      <div className="flex items-center gap-3.5 mb-4 opacity-0 animate-stagger-1">
-        <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
-          <span className="material-symbols-outlined text-brand" style={{ fontVariationSettings: "'FILL' 1" }}>calendar_month</span>
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveSlide((current) => (current + 1) % slides.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [slides.length]);
+
+  const eventDetails = (immersive = false) => (
+    <div className={immersive
+      ? "grid grid-cols-2 gap-2.5"
+      : "card p-5"
+    }>
+      <div className={immersive
+        ? "rounded-2xl border border-white/25 bg-black/35 backdrop-blur-xl p-3.5 flex items-center gap-3 shadow-lg"
+        : "flex items-center gap-3.5 mb-4"
+      }>
+        <div className={immersive
+          ? "w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0"
+          : "w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center shrink-0"
+        }>
+          <span className={`material-symbols-outlined ${immersive ? "text-white" : "text-brand"}`} style={{ fontVariationSettings: "'FILL' 1" }}>calendar_month</span>
         </div>
-        <div>
-          <p className="text-ink font-bold text-sm">Friday, 27th March 2026</p>
-          <p className="text-ink-muted text-xs">8:00 PM — All Night</p>
+        <div className="min-w-0">
+          <p className={`font-bold text-xs sm:text-sm leading-tight ${immersive ? "text-white" : "text-ink"}`}>Friday, 14th August</p>
+          <p className={`text-[10px] sm:text-xs mt-1 ${immersive ? "text-white/75" : "text-ink-muted"}`}>8:00 PM Prompt</p>
         </div>
       </div>
-      <div className="h-px bg-ink-faint/30 mb-4"></div>
-      <div className="flex items-center gap-3.5 opacity-0 animate-stagger-2">
-        <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
-          <span className="material-symbols-outlined text-brand" style={{ fontVariationSettings: "'FILL' 1" }}>location_on</span>
+
+      {!immersive && <div className="h-px bg-ink-faint/30 mb-4" />}
+
+      <div className={immersive
+        ? "rounded-2xl border border-white/25 bg-black/35 backdrop-blur-xl p-3.5 flex items-center gap-3 shadow-lg"
+        : "flex items-center gap-3.5"
+      }>
+        <div className={immersive
+          ? "w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0"
+          : "w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center shrink-0"
+        }>
+          <span className={`material-symbols-outlined ${immersive ? "text-white" : "text-brand"}`} style={{ fontVariationSettings: "'FILL' 1" }}>location_on</span>
         </div>
-        <div>
-          <p className="text-ink font-bold text-sm">Thea Villa Events Hub</p>
-          <p className="text-ink-muted text-xs">Tadisco Down — Takoradi</p>
+        <div className="min-w-0">
+          <p className={`font-bold text-xs sm:text-sm leading-tight ${immersive ? "text-white" : "text-ink"}`}>{EVENT.venue}</p>
+          <p className={`text-[10px] sm:text-xs mt-1 leading-tight ${immersive ? "text-white/75" : "text-ink-muted"}`}>{EVENT.address}</p>
         </div>
       </div>
     </div>
   );
 
-  const ctaFooter = (
-    <div>
+  const actions = (immersive = false) => (
+    <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+      <button
+        onClick={() => navigate("/check-in")}
+        className="btn-brand h-12 sm:h-14 flex items-center justify-center gap-2 text-sm sm:text-base"
+      >
+        <span className="material-symbols-outlined text-lg sm:text-xl">how_to_reg</span>
+        Check In
+      </button>
       <button
         onClick={onContinue}
-        className="btn-brand w-full h-14 flex items-center justify-center gap-2 text-base"
+        className={`h-12 sm:h-14 flex items-center justify-center gap-2 rounded-[0.875rem] border-2 font-bold active:scale-[0.98] transition-all text-sm sm:text-base ${
+          immersive
+            ? "border-white/70 text-white bg-white/10 backdrop-blur-xl hover:bg-white/20"
+            : "border-brand text-brand bg-white hover:bg-brand-50"
+        }`}
       >
-        <span className="material-symbols-outlined text-xl">person_add</span>
-        Register Now
+        <span className="material-symbols-outlined text-lg sm:text-xl">person_add</span>
+        Register
       </button>
-
-      <div className="mt-4 flex items-center justify-between">
-        <button
-          onClick={() => navigate("/login")}
-          className="flex items-center justify-center w-8 h-8 rounded-lg text-ink-faint hover:text-ink-muted hover:bg-ink/5 transition-all duration-200"
-          title="Admin Login"
-        >
-          <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>admin_panel_settings</span>
-        </button>
-        <p className="text-[11px] text-ink-muted flex items-center gap-1">
-          <span className="material-symbols-outlined text-sm">groups</span>
-          @expanprophetic
-        </p>
-        <div className="w-8"></div>
-      </div>
-
-      <div className="mt-5 flex justify-center gap-1.5">
-        <div className="h-1 w-6 rounded-full progress-active"></div>
-        <div className="h-1 w-1.5 rounded-full bg-ink-faint/30"></div>
-        <div className="h-1 w-1.5 rounded-full bg-ink-faint/30"></div>
-        <div className="h-1 w-1.5 rounded-full bg-ink-faint/30"></div>
-      </div>
     </div>
   );
 
-  /* ── Desktop layout ── */
-  const desktopLayout = (
-    <div className="hidden lg:flex min-h-screen">
-      {/* Left: hero panel with crossfade */}
-      <div className="relative w-[55%] xl:w-[60%] overflow-hidden">
-        {HERO_IMAGES.map((src, i) => (
-          <img
-            key={src}
-            src={src}
-            alt={`Ministration ${i + 1}`}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-            style={{ opacity: i === activeImage ? 1 : 0 }}
-          />
-        ))}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-black/30"></div>
-
-        {/* Brand overlay at bottom-left */}
-        <div className="absolute bottom-12 left-12 z-10">
-          <div className="pill bg-white/15 backdrop-blur-md text-white border border-white/20 mb-6">
-            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-            <span>All-Night Service</span>
-          </div>
-          <p className="text-white/50 text-xs font-bold tracking-[0.2em] uppercase mb-3">Extreme Prophetic Encounter</p>
-          <h1 className="font-serif text-white text-6xl xl:text-7xl leading-[0.93] tracking-tight">
-            EXPAN
-          </h1>
-          <h2 className="font-serif italic text-white/70 text-6xl xl:text-7xl leading-[0.93] tracking-tight">
-            Prophetic
-          </h2>
-          <p className="text-white/40 text-sm mt-4 max-w-xs">An encounter that will change your life. Come experience the supernatural.</p>
-        </div>
-
-        {/* Dot indicators for desktop crossfade */}
-        <div className="absolute bottom-12 right-12 flex flex-col gap-2 z-10">
-          {HERO_IMAGES.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveImage(i)}
-              className={`w-1.5 rounded-full transition-all duration-500 ${i === activeImage ? "h-5 bg-white" : "h-1.5 bg-white/40"}`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Right: content */}
-      <div className="flex-1 bg-cream flex flex-col justify-between px-16 py-12">
-        <div>
-          <div className="opacity-0 animate-fade-up" style={{ animationDelay: "0.15s" }}>
-            <p className="text-xs font-bold text-brand tracking-[0.2em] uppercase mb-3">
-              Extreme Prophetic Encounter
-            </p>
-            <h1 className="font-serif text-[42px] text-ink leading-[0.95] tracking-tight mb-1">
-              Join us for<br />a night of<br /><span className="text-brand italic">supernatural</span><br />encounter.
-            </h1>
-          </div>
-
-          <div className="mt-8 opacity-0 animate-fade-up" style={{ animationDelay: "0.25s" }}>
-            {eventCard}
-          </div>
-
-          <p className="text-ink-muted text-xs mt-6 opacity-0 animate-fade-up" style={{ animationDelay: "0.35s" }}>
-            ✨ Experience the supernatural
-          </p>
-        </div>
-
-        <div className="opacity-0 animate-slide-up" style={{ animationDelay: "0.4s" }}>
-          {ctaFooter}
-        </div>
-      </div>
-    </div>
-  );
-
-  /* ── Mobile layout (unchanged) ── */
-  const mobileLayout = (
-    <div className="lg:hidden min-h-screen bg-cream flex flex-col relative">
-      {/* Subtle pattern overlay for lower content area - only on phones */}
-      <div className="md:hidden absolute inset-0 top-[42vh] pointer-events-none z-0" style={{ backgroundImage: "url('/cream-bg-pattern.png')", backgroundSize: "300px 300px", backgroundRepeat: "repeat", opacity: 0.4 }}></div>
-
-      {/* ── TABLET: full-screen hero with overlaid content ── */}
-      <div className="hidden md:flex lg:hidden min-h-screen relative">
-        {/* Full-screen image */}
-        <div className="absolute inset-0 overflow-hidden">
-          {HERO_IMAGES.map((src, i) => (
-            <img
-              key={src}
-              src={src}
-              alt={`Ministration ${i + 1}`}
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: i === activeImage ? 1 : 0 }}
-            />
-          ))}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"></div>
-        </div>
-
-        {/* Overlaid content */}
-        <div className="relative z-10 flex flex-col justify-end w-full px-10 pb-12 pt-8">
-          <div className="absolute top-6 left-8 opacity-0 animate-fade-up" style={{ animationDelay: "0.1s" }}>
-            <div className="pill bg-white/15 backdrop-blur-md text-white border border-white/20">
-              <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-              <span>All-Night Service</span>
-            </div>
-          </div>
-
-          <div className="opacity-0 animate-fade-up" style={{ animationDelay: "0.15s" }}>
-            <p className="text-xs font-bold text-white/60 tracking-[0.2em] uppercase mb-2">
-              Extreme Prophetic Encounter
-            </p>
-            <h1 className="font-serif text-6xl text-white leading-[0.95] tracking-tight mb-1">
-              EXPAN
-            </h1>
-            <h2 className="font-serif italic text-6xl text-white/70 leading-[0.95] tracking-tight">
-              Prophetic
-            </h2>
-          </div>
-
-          <div className="mt-8 opacity-0 animate-fade-up" style={{ animationDelay: "0.25s" }}>
-            <div className="card p-5 bg-black/30 backdrop-blur-2xl border border-white/15" style={{ background: 'none', backgroundColor: 'rgba(0,0,0,0.3)', boxShadow: 'none' }}>
-              <div className="flex items-center gap-3.5 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-white" style={{ fontVariationSettings: "'FILL' 1" }}>calendar_month</span>
-                </div>
-                <div>
-                  <p className="text-white font-bold text-sm">Friday, 27th March 2026</p>
-                  <p className="text-white/50 text-xs">8:00 PM — All Night</p>
-                </div>
-              </div>
-              <div className="h-px bg-white/15 mb-4"></div>
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-white" style={{ fontVariationSettings: "'FILL' 1" }}>location_on</span>
-                </div>
-                <div>
-                  <p className="text-white font-bold text-sm">Thea Villa Events Hub</p>
-                  <p className="text-white/50 text-xs">Tadisco Down — Takoradi</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 opacity-0 animate-slide-up" style={{ animationDelay: "0.4s" }}>
-            <button
-              onClick={onContinue}
-              className="btn-brand w-full h-14 flex items-center justify-center gap-2 text-base"
-            >
-              <span className="material-symbols-outlined text-xl">person_add</span>
-              Register Now
-            </button>
-
-            <div className="mt-4 flex items-center justify-between">
-              <button
-                onClick={() => navigate("/login")}
-                className="flex items-center justify-center w-8 h-8 rounded-lg text-white/30 hover:text-white/60 hover:bg-white/10 transition-all duration-200"
-                title="Admin Login"
-              >
-                <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>admin_panel_settings</span>
-              </button>
-              <p className="text-[11px] text-white/40 flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm">groups</span>
-                @expanprophetic
-              </p>
-              <div className="w-8"></div>
-            </div>
-          </div>
-
-          {/* Dot indicators */}
-          <div className="absolute bottom-12 right-8 flex flex-col gap-2 z-10">
-            {HERO_IMAGES.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveImage(i)}
-                className={`w-1.5 rounded-full transition-all duration-500 ${i === activeImage ? "h-5 bg-white" : "h-1.5 bg-white/40"}`}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── PHONE: original stacked layout ── */}
-      {/* Hero Image Section */}
-      <div className="md:hidden relative w-full" style={{ height: "42vh", minHeight: "280px" }}>
-        <div className="relative w-full h-full overflow-hidden hero-photo">
-          {HERO_IMAGES.map((src, i) => (
-            <img
-              key={src}
-              src={src}
-              alt={`Ministration ${i + 1}`}
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
-              style={{ opacity: i === activeImage ? 1 : 0 }}
-            />
-          ))}
-          <div className="absolute bottom-6 inset-x-0 flex justify-center gap-1.5 z-10">
-            {HERO_IMAGES.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveImage(i)}
-                className={`h-1.5 rounded-full transition-all duration-500 ${i === activeImage ? "w-5 bg-white" : "w-1.5 bg-white/50"}`}
-              />
-            ))}
-          </div>
-        </div>
-        <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-cream to-transparent"></div>
-        <div className="absolute top-5 left-5 opacity-0 animate-fade-up" style={{ animationDelay: "0.1s" }}>
-          <div className="pill bg-white/90 text-ink shadow-sm backdrop-blur-sm">
-            <span className="material-symbols-outlined text-sm text-brand" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-            <span className="text-ink-light">All-Night Service</span>
-          </div>
-        </div>
-      </div>
-
-      <main className="md:hidden flex-1 flex flex-col px-6 max-w-lg w-full mx-auto -mt-4 relative z-10">
-        <div className="opacity-0 animate-fade-up" style={{ animationDelay: "0.15s" }}>
-          <p className="text-xs font-bold text-brand tracking-[0.2em] uppercase mb-2">
-            Extreme Prophetic Encounter
-          </p>
-          <h1 className="font-serif text-[42px] text-ink leading-[0.95] tracking-tight mb-1">
-            EXPAN
-          </h1>
-          <h2 className="font-serif italic text-[42px] text-brand leading-[0.95] tracking-tight">
-            Prophetic
-          </h2>
-        </div>
-
-        <div className="mt-6 opacity-0 animate-fade-up" style={{ animationDelay: "0.25s" }}>
-          {eventCard}
-        </div>
-
-        <p className="text-ink-muted text-xs text-center mt-6 opacity-0 animate-fade-up" style={{ animationDelay: "0.35s" }}>
-          ✨ Experience the supernatural
-        </p>
-      </main>
-
-      <footer className="md:hidden w-full max-w-lg mx-auto px-6 pb-8 pt-4 opacity-0 animate-slide-up" style={{ animationDelay: "0.4s" }}>
-        {ctaFooter}
-      </footer>
+  const slider = (
+    <div className="absolute inset-0 overflow-hidden bg-[#24002f]">
+      {slides.map((slide, index) => (
+        <img
+          key={slide.src}
+          src={slide.src}
+          alt={slide.alt}
+          className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${
+            slide.contain
+              ? "object-contain"
+              : "object-cover max-md:scale-[1.06] max-md:-translate-y-6"
+          }`}
+          style={{ opacity: index === activeSlide ? 1 : 0 }}
+        />
+      ))}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#17001d] via-[#17001d]/55 to-black/5" />
     </div>
   );
 
   return (
-    <>
-      {desktopLayout}
-      {mobileLayout}
-    </>
+    <div className="min-h-screen bg-cream text-ink">
+      {/* Phone + tablet: the selected immersive, single-screen slider. */}
+      <div className="lg:hidden relative h-[100svh] min-h-[640px] overflow-hidden">
+        {slider}
+
+        <div className="absolute top-5 right-5 sm:top-7 sm:right-7 z-20 flex gap-1.5">
+          {slides.map((slide, index) => (
+            <button
+              key={slide.src}
+              onClick={() => setActiveSlide(index)}
+              aria-label={`Show slide ${index + 1}`}
+              className={`h-1.5 rounded-full transition-all duration-500 ${index === activeSlide ? "w-6 bg-white" : "w-1.5 bg-white/45"}`}
+            />
+          ))}
+        </div>
+
+        <div className="relative z-10 h-full flex flex-col justify-end px-5 pb-5 pt-16 sm:px-9 sm:pb-8">
+          <div className="max-w-2xl w-full mx-auto opacity-0 animate-fade-up">
+            <div className="pill bg-white/15 backdrop-blur-xl text-white border border-white/20 mb-3 sm:mb-5">
+              <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+              <span>All-Night Service</span>
+            </div>
+            <p className="text-[10px] sm:text-xs font-bold text-white/65 tracking-[0.18em] uppercase mb-2">
+              Extreme Prophetic Encounter
+            </p>
+            <h1 className="font-serif text-[34px] sm:text-5xl text-white leading-[0.96] tracking-tight max-w-xl">
+              Come expectant for a night of <span className="italic text-white/75">encounter.</span>
+            </h1>
+
+            <div className="mt-4 sm:mt-6">{eventDetails(true)}</div>
+            <div className="mt-3 sm:mt-4">{actions(true)}</div>
+
+            <div className="mt-3 flex items-center justify-between text-white/55">
+              <button
+                onClick={() => navigate("/login")}
+                className="w-8 h-8 rounded-lg hover:text-white hover:bg-white/10 transition-all"
+                title="Admin Login"
+                aria-label="Admin Login"
+              >
+                <span className="material-symbols-outlined text-base">admin_panel_settings</span>
+              </button>
+              <p className="text-[10px] flex items-center gap-1"><span className="material-symbols-outlined text-sm">groups</span>@expanprophetic</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop: flyer and content remain side by side. */}
+      <div className="hidden lg:grid min-h-screen grid-cols-[minmax(420px,1.05fr)_minmax(430px,0.95fr)]">
+        <section className="bg-[#24002f] flex items-center justify-center min-h-screen">
+          <img src={EVENT.flyer} alt={`${EVENT.name} flyer`} className="w-full h-screen object-contain" />
+        </section>
+
+        <section className="relative flex flex-col justify-center px-14 xl:px-20 min-h-screen">
+          <div className="max-w-xl w-full mx-auto opacity-0 animate-fade-up">
+            <div className="pill bg-brand-50 text-brand mb-5">
+              <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+              <span>All-Night Service</span>
+            </div>
+            <p className="text-xs font-bold text-brand tracking-[0.2em] uppercase mb-3">Extreme Prophetic Encounter</p>
+            <h1 className="font-serif text-5xl xl:text-[56px] leading-[0.98] tracking-tight">
+              Come expectant for a night of <span className="text-brand italic">encounter.</span>
+            </h1>
+            <p className="text-ink-muted text-sm mt-4 max-w-md">Returning guests can check in with their registered phone number. If this is your first EXPAN, please register.</p>
+            <div className="mt-7">{eventDetails()}</div>
+            <div className="mt-7">{actions()}</div>
+            <div className="mt-6 flex items-center justify-between">
+              <button onClick={() => navigate("/login")} className="w-8 h-8 rounded-lg text-ink-faint hover:text-ink-muted hover:bg-ink/5 transition-all" title="Admin Login" aria-label="Admin Login">
+                <span className="material-symbols-outlined text-base">admin_panel_settings</span>
+              </button>
+              <p className="text-[11px] text-ink-muted flex items-center gap-1"><span className="material-symbols-outlined text-sm">groups</span>@expanprophetic</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
   );
 };
 

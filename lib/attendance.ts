@@ -1,19 +1,32 @@
-/**
- * Attendance Tracking
- * Handles Sunday check-in operations: recording attendance, duplicate prevention,
- * fetching records, deleting incorrect check-ins, and generating Sunday date lists.
- */
+/** Event check-in operations for returning EXPAN guests. */
 import { supabase } from "./supabaseClient";
+import { EVENT } from "./event";
+import type { ExpanAttendanceCount } from "../types";
 
-/**
- * Look up a registration by phone number.
- */
-export async function findByPhone(phone: string) {
-  const cleaned = phone.replace(/\D/g, "");
+export interface ReturningGuest {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+}
+
+function phoneCandidates(phone: string): string[] {
+  const digits = phone.replace(/\D/g, "");
+  const local = digits.startsWith("233")
+    ? `0${digits.slice(3)}`
+    : digits.length === 9
+      ? `0${digits}`
+      : digits;
+  const international = local.startsWith("0") ? `233${local.slice(1)}` : local;
+  return [...new Set([digits, local, international])];
+}
+
+export async function findByPhone(phone: string): Promise<ReturningGuest | null> {
   const { data, error } = await supabase
-    .from("registrations")
-    .select("id, first_name, last_name, phone_number, photo_url")
-    .eq("phone_number", cleaned)
+    .from("expan_registrations")
+    .select("id, first_name, last_name, phone_number")
+    .in("phone_number", phoneCandidates(phone))
+    .limit(1)
     .maybeSingle();
 
   if (error) {
@@ -21,129 +34,61 @@ export async function findByPhone(phone: string) {
     throw new Error(`Lookup failed: ${error.message}`);
   }
 
-  return data;
+  return data as ReturningGuest | null;
 }
 
-function todaySundayDate(): string {
-  const now = new Date();
-  return now.toISOString().split("T")[0];
-}
-
-export async function hasCheckedInToday(
+export async function hasCheckedIn(
   registrationId: string,
-  dateOverride?: string,
+  eventKey = EVENT.key,
 ): Promise<boolean> {
-  const sundayDate = dateOverride || todaySundayDate();
   const { data, error } = await supabase
-    .from("attendance")
+    .from("expan_check_ins")
     .select("id")
     .eq("registration_id", registrationId)
-    .eq("sunday_date", sundayDate)
+    .eq("event_key", eventKey)
     .maybeSingle();
 
   if (error) {
-    console.error("❌ Attendance check failed:", error.message);
-    return false;
+    console.error("❌ Check-in lookup failed:", error.message);
+    throw new Error(`Check-in lookup failed: ${error.message}`);
   }
 
-  return !!data;
+  return Boolean(data);
 }
 
-export async function recordAttendance(
+export async function recordEventCheckIn(
   registrationId: string,
   phoneNumber: string,
-  dateOverride?: string,
+  attendanceCount: ExpanAttendanceCount,
+  eventKey = EVENT.key,
 ): Promise<{ alreadyCheckedIn: boolean }> {
-  const sundayDate = dateOverride || todaySundayDate();
+  const { error: profileError } = await supabase
+    .from("expan_registrations")
+    .update({ expan_attendance_count: attendanceCount })
+    .eq("id", registrationId);
 
-  const already = await hasCheckedInToday(registrationId, sundayDate);
-  if (already) {
+  if (profileError) {
+    console.error("❌ Failed to update attendance history:", profileError.message);
+    throw new Error(`Attendance history update failed: ${profileError.message}`);
+  }
+
+  if (await hasCheckedIn(registrationId, eventKey)) {
     return { alreadyCheckedIn: true };
   }
 
-  const { error } = await supabase.from("attendance").insert({
+  const { error } = await supabase.from("expan_check_ins").insert({
     registration_id: registrationId,
     phone_number: phoneNumber,
-    sunday_date: sundayDate,
+    attendance_count: attendanceCount,
+    event_key: eventKey,
   });
 
+  // The database unique constraint also protects against simultaneous taps.
+  if (error?.code === "23505") return { alreadyCheckedIn: true };
   if (error) {
-    console.error("❌ Failed to record attendance:", error.message);
-    throw new Error(`Attendance error: ${error.message}`);
+    console.error("❌ Failed to record check-in:", error.message);
+    throw new Error(`Check-in failed: ${error.message}`);
   }
 
-  console.log("✅ Attendance recorded for", sundayDate);
   return { alreadyCheckedIn: false };
-}
-
-export interface AttendanceRecord {
-  id: string;
-  registration_id: string;
-  phone_number: string;
-  sunday_date: string;
-  check_in_time: string;
-  registration?: {
-    first_name: string;
-    last_name: string;
-    photo_url: string | null;
-    attendance_type: string | null;
-    department: string | null;
-  };
-}
-
-export function getPastSundays(): { value: string; label: string }[] {
-  const sundays: { value: string; label: string }[] = [];
-  const startDate = new Date(2026, 2, 1); 
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
-
-  let current = new Date(startDate);
-  while (current <= today) {
-    if (current.getDay() === 0) {
-      const isoDate = current.toISOString().split("T")[0];
-      const label = current.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      });
-      sundays.unshift({ value: isoDate, label });
-    }
-    current.setDate(current.getDate() + 1);
-  }
-  return sundays;
-}
-
-export async function fetchAttendance(
-  sundayDate?: string,
-): Promise<AttendanceRecord[]> {
-  let query = supabase
-    .from("attendance")
-    .select(
-      "id, registration_id, phone_number, sunday_date, check_in_time, registration:registrations(first_name, last_name, photo_url, attendance_type, department)",
-    )
-    .order("check_in_time", { ascending: false });
-
-  if (sundayDate) {
-    query = query.eq("sunday_date", sundayDate);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    console.error("❌ Failed to fetch attendance:", error.message);
-    throw new Error(`Database error: ${error.message}`);
-  }
-
-  return (data as unknown as AttendanceRecord[]) || [];
-}
-
-export async function deleteAttendance(attendanceId: string): Promise<void> {
-  const { error } = await supabase
-    .from("attendance")
-    .delete()
-    .eq("id", attendanceId);
-
-  if (error) {
-    console.error("❌ Failed to delete attendance:", error.message);
-    throw new Error(`Delete failed: ${error.message}`);
-  }
 }

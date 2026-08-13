@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { saveRegistration } from "../lib/db";
 import { sendWelcomeSms } from "../lib/sms";
 import { FormData } from "../types";
@@ -16,6 +17,7 @@ const StepContact: React.FC<StepContactProps> = ({
   onContinue,
   onBack,
 }) => {
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -94,9 +96,19 @@ const StepContact: React.FC<StepContactProps> = ({
         </label>
 
         {error && (
-          <div className="flex items-center gap-2 text-red-600 text-sm animate-slide-in-right bg-red-50 px-4 py-3 rounded-xl border border-red-200">
-            <span className="material-symbols-outlined text-lg">error</span>
-            <span>{error}</span>
+          <div className="text-red-600 text-sm animate-slide-in-right bg-red-50 px-4 py-3 rounded-xl border border-red-200">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-lg">error</span>
+              <span>{error}</span>
+            </div>
+            {error.includes("already registered") && (
+              <button
+                onClick={() => navigate("/check-in")}
+                className="mt-3 w-full h-11 rounded-xl bg-white border border-red-200 text-brand font-bold hover:bg-brand-50 transition-colors"
+              >
+                Go to Check In
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -126,7 +138,7 @@ const StepContact: React.FC<StepContactProps> = ({
           "Complete Registration"
         )}
       </button>
-      <p className="text-center text-xs text-ink-faint mt-3">Step 3 of 3</p>
+      <p className="text-center text-xs text-ink-faint mt-3">Step 4 of 4</p>
     </div>
   );
 
