@@ -4,6 +4,7 @@ import { findByPhone, recordEventCheckIn } from "../lib/attendance";
 import { EVENT } from "../lib/event";
 import { sendCheckInSms } from "../lib/sms";
 import type { ExpanAttendanceCount } from "../types";
+import { useEventAccess } from "../lib/useEventAccess";
 
 interface CheckInSuccess {
   name: string;
@@ -13,6 +14,7 @@ interface CheckInSuccess {
 
 const AttendanceLogin: React.FC = () => {
   const navigate = useNavigate();
+  const isCheckInOpen = useEventAccess("check-in");
   const [phone, setPhone] = useState("");
   const [attendanceCount, setAttendanceCount] = useState<ExpanAttendanceCount | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,7 +104,20 @@ const AttendanceLogin: React.FC = () => {
             </p>
           </div>
 
-          {success ? (
+          {!isCheckInOpen ? (
+            <div className="card p-6 text-center opacity-0 animate-fade-up" style={{ animationDelay: "0.12s" }}>
+              <div className="w-16 h-16 rounded-2xl bg-brand-50 flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-3xl text-brand" style={{ fontVariationSettings: "'FILL' 1" }}>schedule</span>
+              </div>
+              <h2 className="font-serif text-2xl text-ink">Check-in opens at 6 PM</h2>
+              <p className="text-ink-muted text-sm mt-2">
+                Check-in will open automatically on {EVENT.checkInOpensLabel}.
+              </p>
+              <button onClick={() => navigate("/")} className="mt-6 w-full h-12 rounded-xl border-2 border-brand text-brand font-bold hover:bg-brand-50 transition-colors">
+                Back to Event Page
+              </button>
+            </div>
+          ) : success ? (
             <div className="card p-6 text-center animate-scale-in" style={{ opacity: 0 }}>
               <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4 border-2 border-emerald-200">
                 <svg className="w-10 h-10 text-emerald-500" viewBox="0 0 52 52" fill="none">

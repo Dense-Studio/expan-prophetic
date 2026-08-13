@@ -1,16 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { EVENT } from "../lib/event";
+import { useEventAccess } from "../lib/useEventAccess";
 import { FormData } from "../types";
 
-const PHOTO_SLIDES = [
+interface WelcomeSlide {
+  src: string;
+  alt: string;
+  contain?: boolean;
+}
+
+const PHOTO_SLIDES: WelcomeSlide[] = [
   { src: "/assets/image-1.jpg", alt: "EXPAN ministration" },
   { src: "/assets/image-2.jpg", alt: "EXPAN worship moment" },
   { src: "/assets/image-3.jpg", alt: "EXPAN ministration" },
   { src: "/assets/image-4.jpg", alt: "EXPAN worship moment" },
 ];
 
-const TABLET_SLIDES = [
+const TABLET_SLIDES: WelcomeSlide[] = [
   ...PHOTO_SLIDES.slice(0, 2),
   { src: EVENT.flyer, alt: `${EVENT.name} flyer`, contain: true },
   ...PHOTO_SLIDES.slice(2),
@@ -23,6 +30,8 @@ interface StepWelcomeProps {
 
 const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
   const navigate = useNavigate();
+  const isCheckInOpen = useEventAccess("check-in");
+  const isRegistrationOpen = useEventAccess("registration");
   const [activeSlide, setActiveSlide] = useState(0);
   const [isPhone, setIsPhone] = useState(() => window.innerWidth < 768);
 
@@ -92,21 +101,25 @@ const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
     <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
       <button
         onClick={() => navigate("/check-in")}
+        disabled={!isCheckInOpen}
+        title={!isCheckInOpen ? `Opens ${EVENT.checkInOpensLabel}` : undefined}
         className="btn-brand h-12 sm:h-14 flex items-center justify-center gap-2 text-sm sm:text-base"
       >
         <span className="material-symbols-outlined text-lg sm:text-xl">how_to_reg</span>
-        Check In
+        {isCheckInOpen ? "Check In" : "Check In · 6 PM"}
       </button>
       <button
         onClick={onContinue}
+        disabled={!isRegistrationOpen}
+        title={!isRegistrationOpen ? `Opens ${EVENT.registrationOpensLabel}` : undefined}
         className={`h-12 sm:h-14 flex items-center justify-center gap-2 rounded-[0.875rem] border-2 font-bold active:scale-[0.98] transition-all text-sm sm:text-base ${
           immersive
             ? "border-white/70 text-white bg-white/10 backdrop-blur-xl hover:bg-white/20"
             : "border-brand text-brand bg-white hover:bg-brand-50"
-        }`}
+        } disabled:opacity-45 disabled:cursor-not-allowed disabled:active:scale-100`}
       >
         <span className="material-symbols-outlined text-lg sm:text-xl">person_add</span>
-        Register
+        {isRegistrationOpen ? "Register" : "Register · 7 PM"}
       </button>
     </div>
   );
