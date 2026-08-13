@@ -8,7 +8,7 @@ export enum OnboardingStep {
 }
 
 export type PreferredLanguage = "English" | "Twi" | "Fante" | "Ga" | "Ewe";
-export type ExpanAttendanceCount = 1 | 2 | 3;
+export type ExpanAttendanceCount = 1 | 2 | 3 | 4;
 
 export interface FormData {
   firstName: string;

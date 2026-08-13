@@ -109,7 +109,7 @@ const AttendanceLogin: React.FC = () => {
               <div className="w-16 h-16 rounded-2xl bg-brand-50 flex items-center justify-center mx-auto mb-4">
                 <span className="material-symbols-outlined text-3xl text-brand" style={{ fontVariationSettings: "'FILL' 1" }}>schedule</span>
               </div>
-              <h2 className="font-serif text-2xl text-ink">Check-in opens at 6 PM</h2>
+              <h2 className="font-serif text-2xl text-ink">Check-in opens at 7 PM</h2>
               <p className="text-ink-muted text-sm mt-2">
                 Check-in will open automatically on {EVENT.checkInOpensLabel}.
               </p>
@@ -168,11 +168,12 @@ const AttendanceLogin: React.FC = () => {
                 <legend className="text-ink-light text-xs font-bold uppercase tracking-[0.12em] mb-2">
                   Including today, which EXPAN is this for you?
                 </legend>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   {([
-                    { value: 1 as const, label: "First" },
-                    { value: 2 as const, label: "Second" },
-                    { value: 3 as const, label: "Third+" },
+                    { value: 1 as const, label: "1" },
+                    { value: 2 as const, label: "2" },
+                    { value: 3 as const, label: "3" },
+                    { value: 4 as const, label: "4" },
                   ]).map((option) => {
                     const selected = attendanceCount === option.value;
                     return (
@@ -197,7 +198,7 @@ const AttendanceLogin: React.FC = () => {
                     <span className="material-symbols-outlined text-amber-500">search_off</span>
                     <h3 className="text-ink font-bold">Number not found</h3>
                   </div>
-                  <p className="text-ink-muted text-xs">If this is your first EXPAN program, please register.</p>
+                  <p className="text-ink-muted text-xs">If you have not registered before, please register.</p>
                   <button onClick={() => navigate("/")} className="mt-4 w-full h-12 rounded-[0.875rem] border-2 border-brand text-brand font-bold hover:bg-brand-50 transition-colors">Register</button>
                 </div>
               )}

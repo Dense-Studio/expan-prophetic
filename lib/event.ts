@@ -23,8 +23,9 @@ export const EVENT = {
   venue: "Thea Villa Events Hub",
   address: "Tadisco Down — Takoradi",
   flyer: "/assets/expan-august-2026.jpeg",
-  checkInOpensAt: "2026-08-14T18:00:00Z",
-  checkInOpensLabel: "Friday, 14 August at 6:00 PM",
+  forceAccessOpenForTesting: true,
+  checkInOpensAt: "2026-08-14T19:00:00Z",
+  checkInOpensLabel: "Friday, 14 August at 7:00 PM",
   registrationOpensAt: "2026-08-14T19:00:00Z",
   registrationOpensLabel: "Friday, 14 August at 7:00 PM",
 } as const;

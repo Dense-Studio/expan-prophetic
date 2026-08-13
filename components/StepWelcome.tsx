@@ -106,7 +106,7 @@ const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
         className="btn-brand h-12 sm:h-14 flex items-center justify-center gap-2 text-sm sm:text-base"
       >
         <span className="material-symbols-outlined text-lg sm:text-xl">how_to_reg</span>
-        {isCheckInOpen ? "Check In" : "Check In · 6 PM"}
+        {isCheckInOpen ? "Check In" : "Check In · 7 PM"}
       </button>
       <button
         onClick={onContinue}
@@ -207,7 +207,7 @@ const StepWelcome: React.FC<StepWelcomeProps> = ({ onContinue }) => {
             <h1 className="font-serif text-5xl xl:text-[56px] leading-[0.98] tracking-tight">
               Come expectant for a night of <span className="text-brand italic">encounter.</span>
             </h1>
-            <p className="text-ink-muted text-sm mt-4 max-w-md">Returning guests can check in with their registered phone number. If this is your first EXPAN, please register.</p>
+            <p className="text-ink-muted text-sm mt-4 max-w-md">Returning guests can check in with their registered phone number. If you have not registered before, please register.</p>
             <div className="mt-7">{eventDetails()}</div>
             <div className="mt-7">{actions()}</div>
             <div className="mt-6 flex items-center justify-between">

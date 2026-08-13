@@ -8,9 +8,10 @@ const ATTENDANCE_OPTIONS: Array<{
   label: string;
   helper: string;
 }> = [
-  { value: 1, label: "First", helper: "My first EXPAN" },
-  { value: 2, label: "Second", helper: "My second EXPAN" },
-  { value: 3, label: "Third+", helper: "Three or more" },
+  { value: 1, label: "1", helper: "EXPAN edition" },
+  { value: 2, label: "2", helper: "EXPAN editions" },
+  { value: 3, label: "3", helper: "EXPAN editions" },
+  { value: 4, label: "4", helper: "EXPAN editions" },
 ];
 
 interface StepPreferencesProps {
@@ -87,7 +88,7 @@ const StepPreferences: React.FC<StepPreferencesProps> = ({
 
             <fieldset className="opacity-0 animate-stagger-3">
               <legend className="text-ink-light text-xs font-bold uppercase tracking-[0.12em] mb-2 ml-0.5">How many EXPAN editions have you attended, including this one?</legend>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-4 gap-2.5">
                 {ATTENDANCE_OPTIONS.map((option) => {
                   const selected = formData.expanAttendanceCount === option.value;
                   return (

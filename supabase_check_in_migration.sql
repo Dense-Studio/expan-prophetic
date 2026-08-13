@@ -17,11 +17,11 @@ BEGIN
       CHECK (preferred_language IS NULL OR preferred_language IN ('English', 'Twi', 'Fante', 'Ga', 'Ewe'));
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'expan_registrations_attendance_count_check') THEN
-    ALTER TABLE expan_registrations
-      ADD CONSTRAINT expan_registrations_attendance_count_check
-      CHECK (expan_attendance_count IS NULL OR expan_attendance_count BETWEEN 1 AND 3);
-  END IF;
+  ALTER TABLE expan_registrations
+    DROP CONSTRAINT IF EXISTS expan_registrations_attendance_count_check;
+  ALTER TABLE expan_registrations
+    ADD CONSTRAINT expan_registrations_attendance_count_check
+    CHECK (expan_attendance_count IS NULL OR expan_attendance_count BETWEEN 1 AND 4);
 END $$;
 
 UPDATE expan_registrations
@@ -49,11 +49,11 @@ ALTER TABLE expan_check_ins
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'expan_check_ins_attendance_count_check') THEN
-    ALTER TABLE expan_check_ins
-      ADD CONSTRAINT expan_check_ins_attendance_count_check
-      CHECK (attendance_count IS NULL OR attendance_count BETWEEN 1 AND 3);
-  END IF;
+  ALTER TABLE expan_check_ins
+    DROP CONSTRAINT IF EXISTS expan_check_ins_attendance_count_check;
+  ALTER TABLE expan_check_ins
+    ADD CONSTRAINT expan_check_ins_attendance_count_check
+    CHECK (attendance_count IS NULL OR attendance_count BETWEEN 1 AND 4);
 END $$;
 
 CREATE INDEX IF NOT EXISTS expan_check_ins_event_key_idx

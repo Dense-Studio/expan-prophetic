@@ -135,7 +135,7 @@ const AdminDashboard: React.FC = () => {
       r.last_name,
       r.phone_number,
       r.preferred_language || "",
-      r.expan_attendance_count ? (r.expan_attendance_count >= 3 ? "Third or more" : r.expan_attendance_count === 2 ? "Second" : "First") : "",
+      r.expan_attendance_count || "",
       r.location_name || "",
       r.referral_source || "",
       r.is_student ? "Yes" : "No",
@@ -273,9 +273,10 @@ const AdminDashboard: React.FC = () => {
               aria-label="Filter by EXPAN attendance count"
             >
               <option value="all">All Attendance History</option>
-              <option value="1">First EXPAN</option>
-              <option value="2">Second EXPAN</option>
-              <option value="3">Third or More</option>
+              <option value="1">1 EXPAN Edition</option>
+              <option value="2">2 EXPAN Editions</option>
+              <option value="3">3 EXPAN Editions</option>
+              <option value="4">4 EXPAN Editions</option>
             </select>
           </div>
 
@@ -317,7 +318,7 @@ const AdminDashboard: React.FC = () => {
                     <span className="material-symbols-outlined text-base text-white/40">translate</span> Language: <span className="text-white/80 font-medium">{reg.preferred_language || "Not specified"}</span>
                   </p>
                   <p className="text-sm text-white/60 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-base text-white/40">event_repeat</span> EXPAN history: <span className="text-white/80 font-medium">{reg.expan_attendance_count ? (reg.expan_attendance_count >= 3 ? "Third or more" : reg.expan_attendance_count === 2 ? "Second" : "First") : "Not specified"}</span>
+                    <span className="material-symbols-outlined text-base text-white/40">event_repeat</span> EXPAN history: <span className="text-white/80 font-medium">{reg.expan_attendance_count ?? "Not specified"}</span>
                   </p>
                   {reg.is_student && reg.school && (
                     <p className="text-sm text-white/60 flex items-center gap-2">

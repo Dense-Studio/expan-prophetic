@@ -11,9 +11,16 @@ function getOpeningTime(type: EventAccessType): number {
 
 export function useEventAccess(type: EventAccessType): boolean {
   const openingTime = getOpeningTime(type);
-  const [isOpen, setIsOpen] = useState(() => Date.now() >= openingTime);
+  const [isOpen, setIsOpen] = useState(
+    () => EVENT.forceAccessOpenForTesting || Date.now() >= openingTime,
+  );
 
   useEffect(() => {
+    if (EVENT.forceAccessOpenForTesting) {
+      setIsOpen(true);
+      return;
+    }
+
     if (isOpen) return;
 
     const updateAccess = () => setIsOpen(Date.now() >= openingTime);

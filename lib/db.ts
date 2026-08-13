@@ -1,7 +1,7 @@
 /**
  * Registration Database Operations
  * Handles saving new member registrations to Supabase.
- * Keeps registration for first-time guests by rejecting duplicate phone numbers.
+ * Keeps registration for new guests by rejecting duplicate phone numbers.
  */
 import { supabase } from "./supabaseClient";
 import type { FormData } from "../types";

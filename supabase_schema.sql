@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS expan_registrations (
   location_name TEXT,
   referral_source TEXT, -- Posters & Flyers, Invited by someone, Social Media, Other
   preferred_language TEXT CHECK (preferred_language IN ('English', 'Twi', 'Fante', 'Ga', 'Ewe')),
-  expan_attendance_count SMALLINT CHECK (expan_attendance_count BETWEEN 1 AND 3),
+  expan_attendance_count SMALLINT CHECK (expan_attendance_count BETWEEN 1 AND 4),
   is_student BOOLEAN DEFAULT FALSE,
   school TEXT,
   latitude DOUBLE PRECISION,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS expan_check_ins (
   registration_id UUID NOT NULL REFERENCES expan_registrations(id) ON DELETE CASCADE,
   event_key TEXT NOT NULL,
   phone_number TEXT NOT NULL,
-  attendance_count SMALLINT CHECK (attendance_count BETWEEN 1 AND 3),
+  attendance_count SMALLINT CHECK (attendance_count BETWEEN 1 AND 4),
   check_in_time TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (registration_id, event_key)
 );
