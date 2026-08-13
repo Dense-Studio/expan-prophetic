@@ -1,7 +1,7 @@
 /** Event check-in operations for returning EXPAN guests. */
 import { supabase } from "./supabaseClient";
 import { EVENT } from "./event";
-import type { ExpanAttendanceCount } from "../types";
+import type { ExpanAttendanceCount, PreferredLanguage } from "../types";
 
 export interface ReturningGuest {
   id: string;
@@ -60,11 +60,15 @@ export async function recordEventCheckIn(
   registrationId: string,
   phoneNumber: string,
   attendanceCount: ExpanAttendanceCount,
+  preferredLanguage: PreferredLanguage,
   eventKey = EVENT.key,
 ): Promise<{ alreadyCheckedIn: boolean }> {
   const { error: profileError } = await supabase
     .from("expan_registrations")
-    .update({ expan_attendance_count: attendanceCount })
+    .update({
+      expan_attendance_count: attendanceCount,
+      preferred_language: preferredLanguage,
+    })
     .eq("id", registrationId);
 
   if (profileError) {

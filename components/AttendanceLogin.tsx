@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { findByPhone, recordEventCheckIn } from "../lib/attendance";
 import { EVENT } from "../lib/event";
 import { sendCheckInSms } from "../lib/sms";
-import type { ExpanAttendanceCount } from "../types";
+import type { ExpanAttendanceCount, PreferredLanguage } from "../types";
 import { useEventAccess } from "../lib/useEventAccess";
+
+const LANGUAGES: PreferredLanguage[] = ["English", "Twi", "Fante", "Ga", "Ewe"];
 
 interface CheckInSuccess {
   name: string;
@@ -16,6 +18,7 @@ const AttendanceLogin: React.FC = () => {
   const navigate = useNavigate();
   const isCheckInOpen = useEventAccess("check-in");
   const [phone, setPhone] = useState("");
+  const [preferredLanguage, setPreferredLanguage] = useState<PreferredLanguage | "">("");
   const [attendanceCount, setAttendanceCount] = useState<ExpanAttendanceCount | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +37,7 @@ const AttendanceLogin: React.FC = () => {
   };
 
   const handleCheckIn = async () => {
-    if (!isValidPhone || !attendanceCount || isSubmitting) return;
+    if (!isValidPhone || !preferredLanguage || !attendanceCount || isSubmitting) return;
 
     setIsSubmitting(true);
     setError(null);
@@ -51,6 +54,7 @@ const AttendanceLogin: React.FC = () => {
         registration.id,
         registration.phone_number,
         attendanceCount,
+        preferredLanguage,
       );
 
       let smsSent = result.alreadyCheckedIn;
@@ -135,7 +139,7 @@ const AttendanceLogin: React.FC = () => {
                 </p>
               )}
               <button
-                onClick={() => { setSuccess(null); setPhone(""); setAttendanceCount(null); }}
+                onClick={() => { setSuccess(null); setPhone(""); setPreferredLanguage(""); setAttendanceCount(null); }}
                 className="mt-6 w-full h-12 card text-ink font-semibold hover:bg-cream-dark active:scale-[0.98]"
               >
                 Check In Another Person
@@ -161,6 +165,27 @@ const AttendanceLogin: React.FC = () => {
                     onKeyDown={(event) => { if (event.key === "Enter") void handleCheckIn(); }}
                     disabled={isSubmitting}
                   />
+                </div>
+              </label>
+
+              <label className="flex flex-col text-left">
+                <span className="text-ink-light text-xs font-bold uppercase tracking-[0.12em] mb-2">Preferred Language</span>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none z-10">
+                    <span className="material-symbols-outlined text-xl text-ink-faint group-focus-within:text-brand">translate</span>
+                  </div>
+                  <select
+                    className="clean-input w-full h-14 pl-12 pr-10 text-ink text-base font-medium appearance-none cursor-pointer"
+                    value={preferredLanguage}
+                    onChange={(event) => setPreferredLanguage(event.target.value as PreferredLanguage | "")}
+                    disabled={isSubmitting}
+                  >
+                    <option value="">Select your preferred language</option>
+                    {LANGUAGES.map((language) => <option key={language} value={language}>{language}</option>)}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                    <span className="material-symbols-outlined text-lg text-ink-faint">expand_more</span>
+                  </div>
                 </div>
               </label>
 
@@ -212,7 +237,7 @@ const AttendanceLogin: React.FC = () => {
 
               <button
                 onClick={() => void handleCheckIn()}
-                disabled={!isValidPhone || !attendanceCount || isSubmitting}
+                disabled={!isValidPhone || !preferredLanguage || !attendanceCount || isSubmitting}
                 className="btn-brand w-full h-14 flex items-center justify-center text-base"
               >
                 {isSubmitting ? <span className="flex items-center gap-3"><span className="spinner" />Checking in...</span> : "Check In"}
