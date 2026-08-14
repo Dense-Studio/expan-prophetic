@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS expan_check_ins (
   phone_number TEXT NOT NULL,
   attendance_count SMALLINT CHECK (attendance_count BETWEEN 1 AND 4),
   check_in_time TIMESTAMPTZ DEFAULT NOW(),
+  confirmation_sms_attempted_at TIMESTAMPTZ,
+  confirmation_sms_sent_at TIMESTAMPTZ,
+  confirmation_sms_error TEXT,
   UNIQUE (registration_id, event_key)
 );
 

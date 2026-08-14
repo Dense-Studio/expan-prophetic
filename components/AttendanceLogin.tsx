@@ -108,11 +108,13 @@ const AttendanceLogin: React.FC = () => {
               <p className={success.alreadyCheckedIn ? "text-amber-600 text-sm font-medium" : "text-emerald-600 text-sm font-medium"}>
                 {success.alreadyCheckedIn ? "You are already checked in for this program." : "Your check-in is confirmed!"}
               </p>
-              {!success.alreadyCheckedIn && (
-                <p className={`text-xs mt-2 ${success.smsSent ? "text-ink-muted" : "text-amber-600"}`}>
-                  {success.smsSent ? "A confirmation SMS has been sent to you." : "Your check-in was saved, but the confirmation SMS could not be sent."}
-                </p>
-              )}
+              <p className={`text-xs mt-2 ${success.smsSent ? "text-ink-muted" : "text-amber-600"}`}>
+                {success.smsSent
+                  ? success.alreadyCheckedIn
+                    ? "Your confirmation SMS has now been sent."
+                    : "A confirmation SMS has been sent to you."
+                  : "Your check-in is saved. Wait 30 seconds and try again if the SMS does not arrive."}
+              </p>
               <button
                 onClick={() => { setSuccess(null); setPhone(""); setPreferredLanguage(""); setAttendanceCount(null); }}
                 className="mt-6 w-full h-12 card text-ink font-semibold hover:bg-cream-dark active:scale-[0.98]"

@@ -47,6 +47,11 @@ CREATE TABLE IF NOT EXISTS expan_check_ins (
 ALTER TABLE expan_check_ins
   ADD COLUMN IF NOT EXISTS attendance_count SMALLINT;
 
+ALTER TABLE expan_check_ins
+  ADD COLUMN IF NOT EXISTS confirmation_sms_attempted_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS confirmation_sms_sent_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS confirmation_sms_error TEXT;
+
 DO $$
 BEGIN
   ALTER TABLE expan_check_ins
