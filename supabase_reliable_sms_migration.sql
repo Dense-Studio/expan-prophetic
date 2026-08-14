@@ -27,6 +27,13 @@ CREATE TABLE IF NOT EXISTS sms_campaigns (
   valid_recipients INTEGER NOT NULL DEFAULT 0,
   invalid_recipients INTEGER NOT NULL DEFAULT 0,
   duplicate_recipients INTEGER NOT NULL DEFAULT 0,
+  audience_mode TEXT NOT NULL DEFAULT 'standard' CHECK (
+    audience_mode IN ('standard', 'auditorium_first', 'auditorium_only', 'new_arrivals')
+  ),
+  priority_event_key TEXT,
+  priority_cutoff TIMESTAMPTZ,
+  priority_recipients INTEGER NOT NULL DEFAULT 0,
+  source_campaign_id UUID REFERENCES sms_campaigns(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'queued' CHECK (
     status IN ('queued', 'processing', 'awaiting_delivery', 'completed',
       'completed_with_failures', 'needs_review', 'paused', 'cancelled')
@@ -56,6 +63,7 @@ CREATE TABLE IF NOT EXISTS sms_campaign_recipients (
   provider_status TEXT,
   error_code TEXT,
   error_message TEXT,
+  priority_tier SMALLINT NOT NULL DEFAULT 0 CHECK (priority_tier IN (0, 1)),
   last_attempt_at TIMESTAMPTZ,
   accepted_at TIMESTAMPTZ,
   delivered_at TIMESTAMPTZ,
@@ -71,6 +79,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS sms_campaign_recipients_provider_id_idx
   WHERE provider_message_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS sms_campaign_recipients_queue_idx
   ON sms_campaign_recipients (campaign_id, status, next_attempt_at);
+CREATE INDEX IF NOT EXISTS sms_campaign_recipients_priority_queue_idx
+  ON sms_campaign_recipients
+  (campaign_id, status, priority_tier DESC, next_attempt_at, created_at);
 CREATE INDEX IF NOT EXISTS sms_campaign_recipients_status_idx
   ON sms_campaign_recipients (status, updated_at);
 CREATE INDEX IF NOT EXISTS sms_campaigns_status_idx
@@ -93,14 +104,22 @@ LANGUAGE SQL
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  WITH candidates AS (
-    SELECT id
+  WITH active_tier AS (
+    SELECT MAX(priority_tier) AS priority_tier
     FROM sms_campaign_recipients
     WHERE campaign_id = p_campaign_id
-      AND status = 'queued'
-      AND next_attempt_at <= NOW()
-    ORDER BY created_at, id
-    FOR UPDATE SKIP LOCKED
+      AND status IN ('queued', 'submitting')
+  ),
+  candidates AS (
+    SELECT recipient.id
+    FROM sms_campaign_recipients AS recipient
+    CROSS JOIN active_tier
+    WHERE recipient.campaign_id = p_campaign_id
+      AND recipient.status = 'queued'
+      AND recipient.priority_tier = active_tier.priority_tier
+      AND recipient.next_attempt_at <= NOW()
+    ORDER BY recipient.priority_tier DESC, recipient.created_at, recipient.id
+    FOR UPDATE OF recipient SKIP LOCKED
     LIMIT LEAST(GREATEST(p_limit, 1), 250)
   )
   UPDATE sms_campaign_recipients AS recipient

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { createSmsCampaign, previewSmsCampaign, SmsCampaignPreview } from "../lib/smsCampaignApi";
+import { createSmsCampaign, previewSmsCampaign, SmsAudienceOptions, SmsCampaignPreview } from "../lib/smsCampaignApi";
 
 interface SmsCampaignLauncherProps {
   kind: "reminder" | "live";
@@ -8,6 +8,7 @@ interface SmsCampaignLauncherProps {
   audienceLabel: string;
   tone?: "amber" | "brand";
   buttonLabel: string;
+  audienceOptions?: SmsAudienceOptions;
 }
 
 const SmsCampaignLauncher: React.FC<SmsCampaignLauncherProps> = ({
@@ -17,6 +18,7 @@ const SmsCampaignLauncher: React.FC<SmsCampaignLauncherProps> = ({
   audienceLabel,
   tone = "brand",
   buttonLabel,
+  audienceOptions,
 }) => {
   const [preview, setPreview] = useState<SmsCampaignPreview | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -30,7 +32,7 @@ const SmsCampaignLauncher: React.FC<SmsCampaignLauncherProps> = ({
     setSuccess("");
     setIsPreviewing(true);
     try {
-      setPreview(await previewSmsCampaign({ kind, message: message.trim(), registrationIds }));
+      setPreview(await previewSmsCampaign({ kind, message: message.trim(), registrationIds, ...audienceOptions }));
       setRequestKey(crypto.randomUUID());
     } catch (previewError) {
       setError(previewError instanceof Error ? previewError.message : "Could not prepare the SMS campaign.");
@@ -40,7 +42,7 @@ const SmsCampaignLauncher: React.FC<SmsCampaignLauncherProps> = ({
   };
 
   const confirmCampaign = async () => {
-    if (!preview || !preview.sufficientBalance || !preview.enabled || !requestKey) return;
+    if (!preview || preview.validRecipients === 0 || !preview.sufficientBalance || !preview.enabled || !requestKey) return;
     setIsCreating(true);
     setError("");
     try {
@@ -50,6 +52,7 @@ const SmsCampaignLauncher: React.FC<SmsCampaignLauncherProps> = ({
         message: message.trim(),
         audienceLabel,
         registrationIds,
+        ...audienceOptions,
       });
       setPreview(null);
       setSuccess(`Campaign queued for ${campaign.valid_recipients.toLocaleString()} valid recipients.`);
@@ -102,18 +105,32 @@ const SmsCampaignLauncher: React.FC<SmsCampaignLauncherProps> = ({
                   ["Encoding", preview.encoding],
                 ].map(([label, value]) => <div key={label} className="rounded-xl bg-white border border-brand/10 p-3"><p className="text-[10px] uppercase tracking-wider text-brand/45 font-bold">{label}</p><p className="text-lg font-extrabold text-brand-dark mt-1">{value}</p></div>)}
               </div>
+              {preview.audienceMode !== "standard" && (
+                <div className="rounded-xl bg-violet-50 border border-violet-200 p-4 text-sm text-violet-900">
+                  <p className="font-bold">Auditorium-aware delivery</p>
+                  <p className="mt-1">
+                    {preview.priorityRecipients.toLocaleString()} auditorium recipient{preview.priorityRecipients === 1 ? "" : "s"}
+                    {preview.audienceMode === "auditorium_first" && ` will be submitted before ${preview.remainingRecipients.toLocaleString()} remaining recipients.`}
+                    {preview.audienceMode === "auditorium_only" && " will receive this auditorium-only campaign."}
+                    {preview.audienceMode === "new_arrivals" && " joined after the previous live campaign and have not already received it."}
+                  </p>
+                  {preview.effectiveCutoff && <p className="text-xs text-violet-700 mt-2">Arrival window: {new Date(preview.effectiveCutoff).toLocaleString()}</p>}
+                  {preview.excludedAlreadyContacted > 0 && <p className="text-xs text-violet-700 mt-1">{preview.excludedAlreadyContacted} previously contacted number{preview.excludedAlreadyContacted === 1 ? " was" : "s were"} excluded.</p>}
+                </div>
+              )}
               {(preview.invalidRecipients > 0 || preview.duplicateRecipients > 0 || preview.missingRegistrations > 0) && (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
                   {preview.invalidRecipients} invalid, {preview.duplicateRecipients} duplicate and {preview.missingRegistrations} missing registration records will not be charged.
                 </div>
               )}
               {!preview.sufficientBalance && <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700 font-medium">Insufficient Arkesel credits. Top up before sending.</div>}
+              {preview.validRecipients === 0 && <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 font-medium">No valid recipients currently match this audience. Refresh arrivals or choose another audience mode.</div>}
               {!preview.enabled && <div className="rounded-xl bg-slate-100 border border-slate-200 p-4 text-sm text-slate-700">Bulk sending is safely disabled until the production migration, secrets and pilot are complete.</div>}
               {preview.sandbox && <div className="rounded-xl bg-sky-50 border border-sky-200 p-4 text-sm text-sky-700 font-medium">Sandbox mode is active. Arkesel will not deliver or bill these messages.</div>}
               <div className="rounded-xl bg-white border border-brand/10 p-4"><p className="text-[10px] uppercase tracking-wider text-brand/45 font-bold mb-2">Message</p><p className="text-sm whitespace-pre-wrap text-brand-dark leading-relaxed">{message.trim()}</p></div>
               <div className="flex gap-3">
                 <button type="button" onClick={() => setPreview(null)} disabled={isCreating} className="h-12 flex-1 rounded-xl border border-brand/15 text-brand font-bold">Go Back</button>
-                <button type="button" onClick={() => void confirmCampaign()} disabled={isCreating || !preview.sufficientBalance || !preview.enabled} className="h-12 flex-[1.4] rounded-xl bg-brand text-white font-bold disabled:opacity-40 flex items-center justify-center gap-2">
+                <button type="button" onClick={() => void confirmCampaign()} disabled={isCreating || preview.validRecipients === 0 || !preview.sufficientBalance || !preview.enabled} className="h-12 flex-[1.4] rounded-xl bg-brand text-white font-bold disabled:opacity-40 flex items-center justify-center gap-2">
                   {isCreating ? <><span className="spinner" />Queuing...</> : <><span className="material-symbols-outlined text-lg">send</span>Confirm & Queue</>}
                 </button>
               </div>

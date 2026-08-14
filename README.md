@@ -14,6 +14,7 @@ Bulk sending is deny-by-default. `SMS_BULK_ENABLED` must remain `false` until al
 
 1. Create a Supabase backup.
 2. Run `supabase_reliable_sms_migration.sql` in the Supabase SQL editor. This provisions the campaign system without changing the legacy public policies.
+   - Existing installations that already ran the reliable migration should run `supabase_sms_priority_migration.sql` to add auditorium-first live delivery.
 3. Add the server-only Vercel environment variables listed in `.env.example`. Never prefix secrets with `VITE_`.
 4. Deploy with `ARKESEL_SANDBOX=true` and `SMS_BULK_ENABLED=false`; verify secure login, registration and check-in.
 5. Run `supabase_admin_rls_lockdown.sql`, then repeat the login, registration and check-in checks. This is the point where direct anonymous table access is removed.
@@ -25,6 +26,8 @@ Bulk sending is deny-by-default. `SMS_BULK_ENABLED` must remain `false` until al
 ## Campaign safety behavior
 
 - Campaign audiences are immutable snapshots of the active admin filters.
+- Live campaigns can submit 7 PM auditorium arrivals first, target only the auditorium, or safely follow up with new arrivals after an earlier live send.
+- New-arrivals follow-ups exclude normalized phone numbers already included in an earlier live campaign that evening.
 - Ghana numbers are normalized and deduplicated before credits are calculated.
 - Explicit provider throttling and server errors retry three times. Ambiguous timeouts are held for review to prevent accidental duplicate messages.
 - Only `NOT_DELIVERED` and `EXPIRED` recipients can be retried from admin.

@@ -9,6 +9,7 @@ import {
 import { getSupabaseAdmin } from "./supabaseAdmin.js";
 
 export type CampaignKind = "reminder" | "live";
+export type SmsAudienceMode = "standard" | "auditorium_first" | "auditorium_only" | "new_arrivals";
 export const SMS_BATCH_SIZE = 250;
 export const SMS_BATCH_CONCURRENCY = 3;
 
@@ -23,6 +24,8 @@ export function isRetryableDeliveryStatus(status: string): boolean {
 interface RegistrationPhone {
   id: string;
   phone_number: string;
+  event_key: string | null;
+  created_at: string;
 }
 
 interface RecipientRow {
@@ -38,6 +41,7 @@ interface RecipientRow {
   provider_status: string | null;
   error_code: string | null;
   error_message: string | null;
+  priority_tier: 0 | 1;
   last_attempt_at: string | null;
   accepted_at: string | null;
   delivered_at: string | null;
@@ -58,6 +62,11 @@ interface CampaignRow {
   valid_recipients: number;
   invalid_recipients: number;
   duplicate_recipients: number;
+  audience_mode: SmsAudienceMode;
+  priority_event_key: string | null;
+  priority_cutoff: string | null;
+  priority_recipients: number;
+  source_campaign_id: string | null;
   status: string;
   sandbox: boolean;
   last_error: string | null;
@@ -83,6 +92,32 @@ export interface CampaignPreview {
   batches: number;
   sandbox: boolean;
   enabled: boolean;
+  audienceMode: SmsAudienceMode;
+  priorityRecipients: number;
+  remainingRecipients: number;
+  excludedAlreadyContacted: number;
+  effectiveCutoff: string | null;
+  sourceCampaignId: string | null;
+}
+
+interface AudienceOptions {
+  mode: SmsAudienceMode;
+  eventKey: string | null;
+  cutoff: string | null;
+}
+
+interface PreparedAudience {
+  registrations: RegistrationPhone[];
+  selectedRegistrationCount: number;
+  valid: Map<string, RegistrationPhone>;
+  invalid: RegistrationPhone[];
+  duplicates: number;
+  priorityRegistrationIds: Set<string>;
+  priorityRecipients: number;
+  remainingRecipients: number;
+  excludedAlreadyContacted: number;
+  effectiveCutoff: string | null;
+  sourceCampaignId: string | null;
 }
 
 function assertCampaignInput(kind: unknown, message: unknown, registrationIds: unknown) {
@@ -98,6 +133,31 @@ function assertCampaignInput(kind: unknown, message: unknown, registrationIds: u
   }
 }
 
+function parseAudienceOptions(input: {
+  kind: unknown;
+  audienceMode?: unknown;
+  priorityEventKey?: unknown;
+  priorityCutoff?: unknown;
+}): AudienceOptions {
+  if (input.kind !== "live") return { mode: "standard", eventKey: null, cutoff: null };
+  const mode = input.audienceMode ?? "standard";
+  if (!["standard", "auditorium_first", "auditorium_only", "new_arrivals"].includes(String(mode))) {
+    throw new Error("Select a valid live SMS audience mode.");
+  }
+  if (mode === "standard") return { mode: "standard", eventKey: null, cutoff: null };
+  if (typeof input.priorityEventKey !== "string" || !/^[a-z0-9-]{3,100}$/i.test(input.priorityEventKey)) {
+    throw new Error("The live SMS event reference is invalid.");
+  }
+  if (typeof input.priorityCutoff !== "string" || Number.isNaN(Date.parse(input.priorityCutoff))) {
+    throw new Error("Select a valid auditorium arrival time.");
+  }
+  return {
+    mode: mode as SmsAudienceMode,
+    eventKey: input.priorityEventKey,
+    cutoff: new Date(input.priorityCutoff).toISOString(),
+  };
+}
+
 async function fetchRegistrationPhones(registrationIds: string[]): Promise<RegistrationPhone[]> {
   const supabase = getSupabaseAdmin();
   const uniqueIds = [...new Set(registrationIds)];
@@ -105,7 +165,7 @@ async function fetchRegistrationPhones(registrationIds: string[]): Promise<Regis
   for (let index = 0; index < uniqueIds.length; index += 500) {
     const { data, error } = await supabase
       .from("expan_registrations")
-      .select("id, phone_number")
+      .select("id, phone_number, event_key, created_at")
       .in("id", uniqueIds.slice(index, index + 500));
     if (error) throw new Error(`Could not load the SMS audience: ${error.message}`);
     registrations.push(...((data || []) as RegistrationPhone[]));
@@ -113,7 +173,7 @@ async function fetchRegistrationPhones(registrationIds: string[]): Promise<Regis
   return registrations;
 }
 
-function prepareRecipients(registrations: RegistrationPhone[]) {
+function prepareRecipients(registrations: RegistrationPhone[], priorityRegistrationIds = new Set<string>()) {
   const valid = new Map<string, RegistrationPhone>();
   const invalid: RegistrationPhone[] = [];
   let duplicates = 0;
@@ -124,13 +184,151 @@ function prepareRecipients(registrations: RegistrationPhone[]) {
       invalid.push(registration);
       continue;
     }
-    if (valid.has(normalized)) {
+    const existing = valid.get(normalized);
+    if (existing) {
       duplicates += 1;
+      if (priorityRegistrationIds.has(registration.id) && !priorityRegistrationIds.has(existing.id)) {
+        valid.set(normalized, registration);
+      }
       continue;
     }
     valid.set(normalized, registration);
   }
   return { valid, invalid, duplicates };
+}
+
+export function registrationMatchesArrivalWindow(
+  registration: Pick<RegistrationPhone, "event_key" | "created_at">,
+  eventKey: string,
+  cutoff: string,
+): boolean {
+  return registration.event_key === eventKey && Date.parse(registration.created_at) >= Date.parse(cutoff);
+}
+
+async function fetchCheckedInRegistrationIds(registrationIds: string[], eventKey: string, cutoff: string): Promise<Set<string>> {
+  const supabase = getSupabaseAdmin();
+  const checkedIn = new Set<string>();
+  if (registrationIds.length === 0) return checkedIn;
+  for (let index = 0; index < registrationIds.length; index += 500) {
+    const { data, error } = await supabase
+      .from("expan_check_ins")
+      .select("registration_id")
+      .eq("event_key", eventKey)
+      .gte("check_in_time", cutoff)
+      .in("registration_id", registrationIds.slice(index, index + 500));
+    if (error) throw new Error(`Could not load auditorium check-ins: ${error.message}`);
+    for (const row of data || []) {
+      if (typeof row.registration_id === "string") checkedIn.add(row.registration_id);
+    }
+  }
+  return checkedIn;
+}
+
+async function findArrivalRegistrationIds(
+  registrations: RegistrationPhone[],
+  eventKey: string,
+  cutoff: string,
+): Promise<Set<string>> {
+  const arrivals = new Set(
+    registrations
+      .filter((registration) => registrationMatchesArrivalWindow(registration, eventKey, cutoff))
+      .map((registration) => registration.id),
+  );
+  const checkedIn = await fetchCheckedInRegistrationIds(registrations.map((registration) => registration.id), eventKey, cutoff);
+  for (const id of checkedIn) arrivals.add(id);
+  return arrivals;
+}
+
+async function fetchCampaignPhones(campaignIds: string[]): Promise<Set<string>> {
+  const supabase = getSupabaseAdmin();
+  const phones = new Set<string>();
+  for (const campaignId of campaignIds) {
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from("sms_campaign_recipients")
+        .select("normalized_phone")
+        .eq("campaign_id", campaignId)
+        .not("normalized_phone", "is", null)
+        .range(from, from + 999);
+      if (error) throw new Error(`Could not load the earlier live audience: ${error.message}`);
+      for (const row of data || []) {
+        if (typeof row.normalized_phone === "string") phones.add(row.normalized_phone);
+      }
+      if ((data || []).length < 1000) break;
+    }
+  }
+  return phones;
+}
+
+async function prepareAudience(registrationIds: string[], options: AudienceOptions): Promise<PreparedAudience> {
+  let registrations = await fetchRegistrationPhones(registrationIds);
+  const selectedRegistrationCount = registrations.length;
+  let priorityRegistrationIds = new Set<string>();
+  let effectiveCutoff = options.cutoff;
+  let sourceCampaignId: string | null = null;
+  let excludedAlreadyContacted = 0;
+
+  if (options.mode !== "standard" && options.eventKey && options.cutoff) {
+    if (options.mode === "new_arrivals") {
+      const { data, error } = await getSupabaseAdmin()
+        .from("sms_campaigns")
+        .select("id, created_at")
+        .eq("kind", "live")
+        .gte("created_at", options.cutoff)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (error) throw new Error(`Could not find the previous live campaign: ${error.message}`);
+      if (!data?.length) throw new Error("No earlier live campaign was found for a new-arrivals follow-up.");
+      sourceCampaignId = data[0].id as string;
+      effectiveCutoff = data[0].created_at as string;
+    }
+
+    priorityRegistrationIds = await findArrivalRegistrationIds(
+      registrations,
+      options.eventKey,
+      effectiveCutoff || options.cutoff,
+    );
+
+    if (options.mode === "auditorium_only" || options.mode === "new_arrivals") {
+      registrations = registrations.filter((registration) => priorityRegistrationIds.has(registration.id));
+    }
+
+    if (options.mode === "new_arrivals" && sourceCampaignId) {
+      const previousCampaigns = await getSupabaseAdmin()
+        .from("sms_campaigns")
+        .select("id")
+        .eq("kind", "live")
+        .gte("created_at", options.cutoff)
+        .lte("created_at", effectiveCutoff || options.cutoff)
+        .limit(100);
+      if (previousCampaigns.error) throw new Error(`Could not load earlier live campaigns: ${previousCampaigns.error.message}`);
+      const previousPhones = await fetchCampaignPhones((previousCampaigns.data || []).map((campaign) => campaign.id as string));
+      registrations = registrations.filter((registration) => {
+        const normalized = normalizeGhanaPhone(registration.phone_number);
+        if (normalized && previousPhones.has(normalized)) {
+          excludedAlreadyContacted += 1;
+          return false;
+        }
+        return true;
+      });
+      priorityRegistrationIds = new Set(registrations.map((registration) => registration.id));
+    }
+  }
+
+  const prepared = prepareRecipients(registrations, priorityRegistrationIds);
+  const priorityRecipients = [...prepared.valid.values()]
+    .filter((registration) => priorityRegistrationIds.has(registration.id)).length;
+  return {
+    registrations,
+    selectedRegistrationCount,
+    ...prepared,
+    priorityRegistrationIds,
+    priorityRecipients,
+    remainingRecipients: prepared.valid.size - priorityRecipients,
+    excludedAlreadyContacted,
+    effectiveCutoff,
+    sourceCampaignId,
+  };
 }
 
 async function waitForCampaignSnapshot(campaign: CampaignRow): Promise<CampaignRow> {
@@ -149,12 +347,15 @@ export async function previewCampaign(input: {
   kind: unknown;
   message: unknown;
   registrationIds: unknown;
+  audienceMode?: unknown;
+  priorityEventKey?: unknown;
+  priorityCutoff?: unknown;
 }): Promise<CampaignPreview> {
   assertCampaignInput(input.kind, input.message, input.registrationIds);
+  const audienceOptions = parseAudienceOptions(input);
   const ids = [...new Set(input.registrationIds as string[])];
   const message = (input.message as string).trim();
-  const registrations = await fetchRegistrationPhones(ids);
-  const prepared = prepareRecipients(registrations);
+  const prepared = await prepareAudience(ids, audienceOptions);
   const estimate = estimateSms(message);
   const estimatedCredits = prepared.valid.size * estimate.parts;
   const availableCredits = await getArkeselBalance();
@@ -164,7 +365,7 @@ export async function previewCampaign(input: {
     validRecipients: prepared.valid.size,
     invalidRecipients: prepared.invalid.length,
     duplicateRecipients: prepared.duplicates,
-    missingRegistrations: Math.max(0, ids.length - registrations.length),
+    missingRegistrations: Math.max(0, ids.length - prepared.selectedRegistrationCount),
     encoding: estimate.encoding,
     characters: estimate.characters,
     smsParts: estimate.parts,
@@ -174,6 +375,12 @@ export async function previewCampaign(input: {
     batches: calculateBatchCount(prepared.valid.size),
     sandbox: process.env.ARKESEL_SANDBOX === "true",
     enabled: process.env.SMS_BULK_ENABLED === "true",
+    audienceMode: audienceOptions.mode,
+    priorityRecipients: prepared.priorityRecipients,
+    remainingRecipients: prepared.remainingRecipients,
+    excludedAlreadyContacted: prepared.excludedAlreadyContacted,
+    effectiveCutoff: prepared.effectiveCutoff,
+    sourceCampaignId: prepared.sourceCampaignId,
   };
 }
 
@@ -183,11 +390,15 @@ export async function createCampaign(input: {
   message: unknown;
   audienceLabel: unknown;
   registrationIds: unknown;
+  audienceMode?: unknown;
+  priorityEventKey?: unknown;
+  priorityCutoff?: unknown;
 }): Promise<CampaignRow> {
   if (process.env.SMS_BULK_ENABLED !== "true") {
     throw new Error("Reliable bulk sending is disabled until rollout configuration is complete.");
   }
   assertCampaignInput(input.kind, input.message, input.registrationIds);
+  const audienceOptions = parseAudienceOptions(input);
   if (typeof input.requestKey !== "string" || !/^[0-9a-f-]{36}$/i.test(input.requestKey)) {
     throw new Error("A valid campaign request key is required.");
   }
@@ -206,8 +417,7 @@ export async function createCampaign(input: {
 
   const ids = [...new Set(input.registrationIds as string[])];
   const message = (input.message as string).trim();
-  const registrations = await fetchRegistrationPhones(ids);
-  const prepared = prepareRecipients(registrations);
+  const prepared = await prepareAudience(ids, audienceOptions);
   const estimate = estimateSms(message);
   const estimatedCredits = prepared.valid.size * estimate.parts;
   if (prepared.valid.size === 0) throw new Error("No valid Ghana phone numbers were found in this audience.");
@@ -231,6 +441,11 @@ export async function createCampaign(input: {
       valid_recipients: prepared.valid.size,
       invalid_recipients: prepared.invalid.length,
       duplicate_recipients: prepared.duplicates,
+      audience_mode: audienceOptions.mode,
+      priority_event_key: audienceOptions.eventKey,
+      priority_cutoff: prepared.effectiveCutoff,
+      priority_recipients: prepared.priorityRecipients,
+      source_campaign_id: prepared.sourceCampaignId,
       sandbox: process.env.ARKESEL_SANDBOX === "true",
     })
     .select("*")
@@ -249,6 +464,7 @@ export async function createCampaign(input: {
       original_phone: registration.phone_number,
       normalized_phone: phone,
       status: "queued",
+      priority_tier: prepared.priorityRegistrationIds.has(registration.id) ? 1 : 0,
     })),
     ...prepared.invalid.map((registration) => ({
       campaign_id: campaign.id,
@@ -256,6 +472,7 @@ export async function createCampaign(input: {
       original_phone: registration.phone_number,
       normalized_phone: null,
       status: "invalid",
+      priority_tier: prepared.priorityRegistrationIds.has(registration.id) ? 1 : 0,
       error_code: "INVALID_GHANA_PHONE",
       error_message: "The phone number could not be normalized to 233XXXXXXXXX.",
     })),
@@ -583,7 +800,7 @@ export async function getCampaignDetail(campaignId: string, search = "") {
   if (countsResult.error) throw new Error(countsResult.error.message);
 
   let query = supabase.from("sms_campaign_recipients")
-    .select("id, registration_id, original_phone, normalized_phone, status, attempt_count, provider_message_id, provider_status, error_code, error_message, updated_at")
+    .select("id, registration_id, original_phone, normalized_phone, priority_tier, status, attempt_count, provider_message_id, provider_status, error_code, error_message, updated_at")
     .eq("campaign_id", campaignId)
     .order("created_at", { ascending: true })
     .limit(500);
@@ -601,16 +818,16 @@ export async function exportCampaignRecipients(campaignId: string): Promise<stri
   const rows: Array<Record<string, unknown>> = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase.from("sms_campaign_recipients")
-      .select("original_phone, normalized_phone, status, attempt_count, provider_message_id, provider_status, error_code, error_message, updated_at")
+      .select("original_phone, normalized_phone, priority_tier, status, attempt_count, provider_message_id, provider_status, error_code, error_message, updated_at")
       .eq("campaign_id", campaignId).order("created_at").range(from, from + 999);
     if (error) throw new Error(error.message);
     rows.push(...(data || []));
     if (!data || data.length < 1000) break;
   }
-  const headers = ["Original Phone", "Normalized Phone", "Status", "Attempts", "Arkesel ID", "Provider Status", "Error Code", "Error", "Updated At"];
+  const headers = ["Original Phone", "Normalized Phone", "Priority", "Status", "Attempts", "Arkesel ID", "Provider Status", "Error Code", "Error", "Updated At"];
   const escape = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
   return [headers.map(escape).join(","), ...rows.map((row) => [
-    row.original_phone, row.normalized_phone, row.status, row.attempt_count,
+    row.original_phone, row.normalized_phone, Number(row.priority_tier) === 1 ? "Auditorium" : "Standard", row.status, row.attempt_count,
     row.provider_message_id, row.provider_status, row.error_code, row.error_message, row.updated_at,
   ].map(escape).join(","))].join("\n");
 }

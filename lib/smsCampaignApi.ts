@@ -4,6 +4,14 @@ export type SmsCampaignStatus =
   | "queued" | "processing" | "awaiting_delivery" | "completed"
   | "completed_with_failures" | "needs_review" | "paused" | "cancelled";
 
+export type SmsAudienceMode = "standard" | "auditorium_first" | "auditorium_only" | "new_arrivals";
+
+export interface SmsAudienceOptions {
+  audienceMode: SmsAudienceMode;
+  priorityEventKey?: string;
+  priorityCutoff?: string;
+}
+
 export interface SmsCampaignCounts {
   total: number;
   queued: number;
@@ -32,6 +40,11 @@ export interface SmsCampaign {
   valid_recipients: number;
   invalid_recipients: number;
   duplicate_recipients: number;
+  audience_mode: SmsAudienceMode;
+  priority_event_key: string | null;
+  priority_cutoff: string | null;
+  priority_recipients: number;
+  source_campaign_id: string | null;
   status: SmsCampaignStatus;
   sandbox: boolean;
   last_error: string | null;
@@ -58,6 +71,12 @@ export interface SmsCampaignPreview {
   batches: number;
   sandbox: boolean;
   enabled: boolean;
+  audienceMode: SmsAudienceMode;
+  priorityRecipients: number;
+  remainingRecipients: number;
+  excludedAlreadyContacted: number;
+  effectiveCutoff: string | null;
+  sourceCampaignId: string | null;
 }
 
 export interface SmsCampaignRecipient {
@@ -68,6 +87,7 @@ export interface SmsCampaignRecipient {
   attempt_count: number;
   provider_message_id: string | null;
   provider_status: string | null;
+  priority_tier: 0 | 1;
   error_code: string | null;
   error_message: string | null;
   updated_at: string;
@@ -77,7 +97,7 @@ export async function previewSmsCampaign(input: {
   kind: "reminder" | "live";
   message: string;
   registrationIds: string[];
-}): Promise<SmsCampaignPreview> {
+} & Partial<SmsAudienceOptions>): Promise<SmsCampaignPreview> {
   const result = await apiRequest<{ preview: SmsCampaignPreview }>("/api/admin/sms-preview", {
     method: "POST",
     body: JSON.stringify(input),
@@ -91,7 +111,7 @@ export async function createSmsCampaign(input: {
   message: string;
   audienceLabel: string;
   registrationIds: string[];
-}): Promise<SmsCampaign> {
+} & Partial<SmsAudienceOptions>): Promise<SmsCampaign> {
   const result = await apiRequest<{ campaign: SmsCampaign }>("/api/admin/sms-campaigns", {
     method: "POST",
     body: JSON.stringify(input),

@@ -4,16 +4,20 @@ import {
   LiveLinkMode,
 } from "../lib/sms";
 import { estimateSms } from "../lib/smsEncoding";
+import { SmsAudienceMode } from "../lib/smsCampaignApi";
+import { EVENT } from "../lib/event";
 import SmsCampaignLauncher from "./SmsCampaignLauncher";
 
 interface BulkLiveSmsPanelProps {
   registrationIds: string[];
   audienceLabel: string;
+  onRefreshAudience?: () => Promise<void>;
 }
 
 const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
   registrationIds,
   audienceLabel,
+  onRefreshAudience,
 }) => {
   const [mode, setMode] = useState<LiveLinkMode>("single");
   const [sharedUrl, setSharedUrl] = useState("");
@@ -21,6 +25,22 @@ const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
   const [facebookUrl, setFacebookUrl] = useState("");
   const [tiktokUrl, setTiktokUrl] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
+  const [audienceMode, setAudienceMode] = useState<SmsAudienceMode>("auditorium_first");
+  const [arrivalCutoff, setArrivalCutoff] = useState("2026-08-14T19:00");
+  const [isRefreshingAudience, setIsRefreshingAudience] = useState(false);
+  const arrivalCutoffIso = useMemo(() => {
+    const parsed = Date.parse(`${arrivalCutoff}:00Z`);
+    return Number.isNaN(parsed) ? EVENT.checkInOpensAt : new Date(parsed).toISOString();
+  }, [arrivalCutoff]);
+  const priorityAudienceLabel = useMemo(() => {
+    const suffix: Record<SmsAudienceMode, string> = {
+      standard: "normal delivery order",
+      auditorium_first: "tonight's auditorium arrivals first",
+      auditorium_only: "tonight's auditorium arrivals only",
+      new_arrivals: "new arrivals since the previous live send",
+    };
+    return `${audienceLabel}; ${suffix[audienceMode]}`;
+  }, [audienceLabel, audienceMode]);
 
   const messageResult = useMemo(() => {
     try {
@@ -69,6 +89,63 @@ const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
 
       {isExpanded && (
         <div className="border-t border-brand/10 p-5 space-y-5 animate-fade-in">
+          <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-4 space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0"><span className="material-symbols-outlined">groups</span></span>
+              <div>
+                <p className="font-bold text-violet-950">Delivery audience</p>
+                <p className="text-xs text-violet-700 mt-0.5">Prioritise people recorded in the auditorium while keeping one deduplicated campaign.</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {([
+                ["auditorium_first", "Auditorium First", "Arrivals first, then everyone else"],
+                ["auditorium_only", "Auditorium Only", "Send only to recorded arrivals"],
+                ["new_arrivals", "New Arrivals", "Follow up after an earlier live send"],
+                ["standard", "Normal Order", "Use the current filtered audience"],
+              ] as Array<[SmsAudienceMode, string, string]>).map(([value, label, description]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setAudienceMode(value)}
+                  className={`rounded-xl border p-3 text-left transition-all ${audienceMode === value ? "border-violet-600 bg-white shadow-sm ring-2 ring-violet-200" : "border-violet-200 bg-white/60 hover:bg-white"}`}
+                  aria-pressed={audienceMode === value}
+                >
+                  <span className="block text-xs font-bold text-violet-950">{label}</span>
+                  <span className="block text-[10px] leading-relaxed text-violet-600 mt-1">{description}</span>
+                </button>
+              ))}
+            </div>
+            {audienceMode !== "standard" && (
+              <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                <label className="block max-w-sm flex-1">
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-violet-700 mb-1.5">Tonight's arrival window starts</span>
+                  <input
+                    type="datetime-local"
+                    value={arrivalCutoff}
+                    onChange={(event) => setArrivalCutoff(event.target.value)}
+                    className="w-full h-11 px-3 rounded-xl border border-violet-200 bg-white text-sm text-violet-950 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  />
+                  <span className="block text-[10px] text-violet-600 mt-1">Ghana time. Check-ins and new August registrations from this time qualify.</span>
+                </label>
+                {onRefreshAudience && (
+                  <button
+                    type="button"
+                    disabled={isRefreshingAudience}
+                    onClick={async () => {
+                      setIsRefreshingAudience(true);
+                      try { await onRefreshAudience(); } finally { setIsRefreshingAudience(false); }
+                    }}
+                    className="h-11 px-4 rounded-xl border border-violet-300 bg-white text-violet-800 text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    <span className={`material-symbols-outlined text-base ${isRefreshingAudience ? "animate-spin" : ""}`}>refresh</span>
+                    Refresh arrivals
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-brand/5">
             <button
               type="button"
@@ -143,7 +220,14 @@ const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
               kind="live"
               message={messageResult.message}
               registrationIds={registrationIds}
-              audienceLabel={audienceLabel}
+              audienceLabel={priorityAudienceLabel}
+              audienceOptions={{
+                audienceMode,
+                ...(audienceMode === "standard" ? {} : {
+                  priorityEventKey: EVENT.key,
+                  priorityCutoff: arrivalCutoffIso,
+                }),
+              }}
               tone="brand"
               buttonLabel="Review & Send"
             />

@@ -2,7 +2,7 @@
  * AdminDashboard — Admin Panel (/admin)
  * Dark-themed management interface for EXPAN Prophetic.
  */
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchRegistrations, deleteRegistration, updateRegistration, Registration } from "../lib/adminDb";
 import { EVENTS, getEventLabel } from "../lib/event";
@@ -71,12 +71,17 @@ const AdminDashboard: React.FC = () => {
   const [isSavingRegistration, setIsSavingRegistration] = useState(false);
   const [editError, setEditError] = useState("");
 
+  const refreshRegistrations = useCallback(async () => {
+    const data = await fetchRegistrations();
+    setRegistrations(data);
+    setError("");
+  }, []);
+
   useEffect(() => {
     const load = async () => {
       try {
         await apiRequest<{ authenticated: boolean }>("/api/admin/session");
-        const data = await fetchRegistrations();
-        setRegistrations(data);
+        await refreshRegistrations();
       } catch (err: any) {
         if (err?.status === 401) {
           navigate("/login", { replace: true });
@@ -88,7 +93,7 @@ const AdminDashboard: React.FC = () => {
       }
     };
     load();
-  }, [navigate]);
+  }, [navigate, refreshRegistrations]);
 
   useEffect(() => {
     const handleScroll = () => setShowScrollTop(window.scrollY > 500);
@@ -466,6 +471,7 @@ const AdminDashboard: React.FC = () => {
           <BulkLiveSmsPanel
             registrationIds={filtered.map((registration) => registration.id)}
             audienceLabel={smsAudienceLabel}
+            onRefreshAudience={refreshRegistrations}
           />
 
           <SmsCampaignHistory />
