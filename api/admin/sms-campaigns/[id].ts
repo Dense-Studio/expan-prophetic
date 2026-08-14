@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requireAdmin } from "../../../server/auth";
-import { exportCampaignRecipients, getCampaignDetail } from "../../../server/campaigns";
-import { errorMessage, methodNotAllowed, sendServerError, singleQueryValue } from "../../../server/http";
+import { requireAdmin } from "../../../server/auth.js";
+import { exportCampaignRecipients, getCampaignDetail } from "../../../server/campaigns.js";
+import { errorMessage, methodNotAllowed, sendServerError, singleQueryValue } from "../../../server/http.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") return methodNotAllowed(res, ["GET"]);

@@ -1,6 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getRequestOrigin } from "./http";
+import { getRequestOrigin } from "./http.js";
 
 const COOKIE_NAME = "expan_admin_session";
 const SESSION_SECONDS = 8 * 60 * 60;

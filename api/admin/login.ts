@@ -4,9 +4,9 @@ import {
   getClientIpHash,
   hasTrustedOrigin,
   verifyAdminPassword,
-} from "../../server/auth";
-import { methodNotAllowed, sendServerError } from "../../server/http";
-import { getSupabaseAdmin } from "../../server/supabaseAdmin";
+} from "../../server/auth.js";
+import { methodNotAllowed, sendServerError } from "../../server/http.js";
+import { getSupabaseAdmin } from "../../server/supabaseAdmin.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);

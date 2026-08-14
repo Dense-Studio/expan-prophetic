@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requireAdmin } from "../../server/auth";
-import { errorMessage, methodNotAllowed, sendServerError } from "../../server/http";
-import { getSupabaseAdmin } from "../../server/supabaseAdmin";
+import { requireAdmin } from "../../server/auth.js";
+import { errorMessage, methodNotAllowed, sendServerError } from "../../server/http.js";
+import { getSupabaseAdmin } from "../../server/supabaseAdmin.js";
 
 async function fetchAllRegistrations() {
   const supabase = getSupabaseAdmin();

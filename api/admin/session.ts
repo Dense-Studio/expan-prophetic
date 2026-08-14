@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { hasAdminSession } from "../../server/auth";
-import { methodNotAllowed } from "../../server/http";
+import { hasAdminSession } from "../../server/auth.js";
+import { methodNotAllowed } from "../../server/http.js";
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") return methodNotAllowed(res, ["GET"]);

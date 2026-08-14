@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { EVENT } from "../lib/event";
-import { normalizeGhanaPhone } from "../lib/smsEncoding";
-import { sendTransactionalSms } from "../server/arkesel";
-import { methodNotAllowed, sendServerError } from "../server/http";
-import { eventWelcomeMessage } from "../server/messages";
-import { getSupabaseAdmin } from "../server/supabaseAdmin";
+import { EVENT } from "../lib/event.js";
+import { normalizeGhanaPhone } from "../lib/smsEncoding.js";
+import { sendTransactionalSms } from "../server/arkesel.js";
+import { methodNotAllowed, sendServerError } from "../server/http.js";
+import { eventWelcomeMessage } from "../server/messages.js";
+import { getSupabaseAdmin } from "../server/supabaseAdmin.js";
 
 const LANGUAGES = new Set(["English", "Twi", "Fante", "Ga", "Ewe"]);
 

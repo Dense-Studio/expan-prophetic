@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { waitUntil } from "@vercel/functions";
-import { requireAdmin } from "../../server/auth";
-import { createCampaign, listCampaigns, processCampaign } from "../../server/campaigns";
-import { errorMessage, methodNotAllowed, sendServerError } from "../../server/http";
+import { requireAdmin } from "../../server/auth.js";
+import { createCampaign, listCampaigns, processCampaign } from "../../server/campaigns.js";
+import { errorMessage, methodNotAllowed, sendServerError } from "../../server/http.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!req.method || !["GET", "POST"].includes(req.method)) return methodNotAllowed(res, ["GET", "POST"]);

@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { estimateSms, normalizeGhanaPhone } from "../lib/smsEncoding";
+import { estimateSms, normalizeGhanaPhone } from "../lib/smsEncoding.js";
 import {
   ArkeselHttpError,
   fetchArkeselReports,
   getArkeselBalance,
   sendArkeselBatch,
-} from "./arkesel";
-import { getSupabaseAdmin } from "./supabaseAdmin";
+} from "./arkesel.js";
+import { getSupabaseAdmin } from "./supabaseAdmin.js";
 
 export type CampaignKind = "reminder" | "live";
 export const SMS_BATCH_SIZE = 250;

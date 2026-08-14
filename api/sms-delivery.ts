@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { applyDeliveryStatus } from "../server/campaigns";
-import { methodNotAllowed, sendServerError, singleQueryValue } from "../server/http";
+import { applyDeliveryStatus } from "../server/campaigns.js";
+import { methodNotAllowed, sendServerError, singleQueryValue } from "../server/http.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!req.method || !["GET", "POST"].includes(req.method)) return methodNotAllowed(res, ["GET", "POST"]);

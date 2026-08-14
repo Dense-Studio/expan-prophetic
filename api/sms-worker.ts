@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { methodNotAllowed, sendServerError } from "../server/http";
-import { processPendingCampaigns } from "../server/campaigns";
+import { methodNotAllowed, sendServerError } from "../server/http.js";
+import { processPendingCampaigns } from "../server/campaigns.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
