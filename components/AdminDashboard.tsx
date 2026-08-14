@@ -2,14 +2,17 @@
  * AdminDashboard — Admin Panel (/admin)
  * Dark-themed management interface for EXPAN Prophetic.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchRegistrations, deleteRegistration, Registration } from "../lib/adminDb";
 import { EVENTS, getEventLabel } from "../lib/event";
 import BulkLiveSmsPanel from "./BulkLiveSmsPanel";
 
+const PAGE_SIZE = 200;
+
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const registrationsTopRef = useRef<HTMLDivElement>(null);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -22,6 +25,8 @@ const AdminDashboard: React.FC = () => {
   const [isSuperAdmin] = useState(() => sessionStorage.getItem("expan_admin_role") === "superadmin");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
     if (sessionStorage.getItem("expan_admin_auth") !== "true") {
@@ -42,6 +47,17 @@ const AdminDashboard: React.FC = () => {
     };
     load();
   }, []);
+
+  useEffect(() => {
+    const handleScroll = () => setShowScrollTop(window.scrollY > 500);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
 
   const filtered = useMemo(() => {
     let items = registrations;
@@ -86,6 +102,32 @@ const AdminDashboard: React.FC = () => {
 
     return items;
   }, [registrations, searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const paginatedRegistrations = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const paginationItems = useMemo<Array<number | string>>(() => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
+
+    const visiblePages = [...new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1])]
+      .filter(page => page >= 1 && page <= totalPages)
+      .sort((a, b) => a - b);
+    const items: Array<number | string> = [];
+
+    visiblePages.forEach((page, index) => {
+      const previousPage = visiblePages[index - 1];
+      if (index > 0 && page - previousPage === 2) items.push(previousPage + 1);
+      if (index > 0 && page - previousPage > 2) items.push(`ellipsis-${previousPage}`);
+      items.push(page);
+    });
+
+    return items;
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    setCurrentPage(page => Math.min(page, totalPages));
+  }, [totalPages]);
 
   const editionRegistrations = useMemo(() => {
     if (filterEvent === "all") return registrations;
@@ -160,7 +202,17 @@ const AdminDashboard: React.FC = () => {
   const handleLogout = () => {
     sessionStorage.removeItem("expan_admin_auth");
     navigate("/login");
-  };  if (loading) {
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages || page === currentPage) return;
+    setCurrentPage(page);
+    window.requestAnimationFrame(() => {
+      registrationsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#f5f0eb] flex items-center justify-center relative">
         <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "url('/admin-bg-pattern.png')", backgroundSize: "400px 400px", backgroundRepeat: "repeat", opacity: 0.12 }}></div>
@@ -209,8 +261,8 @@ const AdminDashboard: React.FC = () => {
               <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">Students</p>
             </div>
             <div className="bg-brand rounded-xl p-4 text-center shadow-md shadow-brand/15">
-              <p className="text-2xl md:text-3xl font-extrabold text-white">{filtered.length}</p>
-              <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">Showing</p>
+              <p className="text-2xl md:text-3xl font-extrabold text-white">{paginatedRegistrations.length}</p>
+              <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">On Page</p>
             </div>
           </div>
 
@@ -288,8 +340,9 @@ const AdminDashboard: React.FC = () => {
           {error && <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 text-sm font-medium">{error}</div>}
 
           {/* Registration Cards */}
+          <div ref={registrationsTopRef} className="scroll-mt-24" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(reg => (
+            {paginatedRegistrations.map(reg => (
               <div key={reg.id} className="bg-[#611828] rounded-2xl p-5 group hover:bg-[#4e1320] transition-all duration-300 shadow-md shadow-brand/15">
                 <div className="flex items-center gap-3.5 mb-4">
                   <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center text-white font-bold text-sm border border-white/15">
@@ -346,8 +399,67 @@ const AdminDashboard: React.FC = () => {
               <p className="text-brand/40 text-sm">No registered members found.</p>
             </div>
           )}
+
+          {filtered.length > 0 && (
+            <nav className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl bg-white/70 border border-brand/15 px-4 py-4 shadow-sm" aria-label="Registration pagination">
+              <p className="text-xs sm:text-sm text-brand/60 font-medium">
+                Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} of {filtered.length.toLocaleString()}
+              </p>
+
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="h-10 px-3 rounded-xl border border-brand/15 bg-white text-brand font-bold text-xs hover:border-brand/40 hover:bg-brand-50 disabled:opacity-35 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                    aria-label="Previous page"
+                  >
+                    <span className="material-symbols-outlined text-base">chevron_left</span>
+                    <span className="hidden sm:inline">Previous</span>
+                  </button>
+
+                  {paginationItems.map(item => typeof item === "number" ? (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => handlePageChange(item)}
+                      aria-label={`Page ${item}`}
+                      aria-current={item === currentPage ? "page" : undefined}
+                      className={`w-10 h-10 rounded-xl text-xs font-extrabold transition-colors ${item === currentPage ? "bg-brand text-white shadow-md shadow-brand/20" : "bg-white border border-brand/15 text-brand hover:border-brand/40 hover:bg-brand-50"}`}
+                    >
+                      {item}
+                    </button>
+                  ) : (
+                    <span key={item} className="w-7 text-center text-brand/35 font-bold" aria-hidden="true">…</span>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="h-10 px-3 rounded-xl border border-brand/15 bg-white text-brand font-bold text-xs hover:border-brand/40 hover:bg-brand-50 disabled:opacity-35 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                    aria-label="Next page"
+                  >
+                    <span className="hidden sm:inline">Next</span>
+                    <span className="material-symbols-outlined text-base">chevron_right</span>
+                  </button>
+                </div>
+              )}
+            </nav>
+          )}
         </div>
       </main>
+
+      <button
+        type="button"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Scroll back to top"
+        className={`fixed bottom-5 right-5 md:bottom-7 md:right-7 z-50 w-12 h-12 rounded-full bg-brand text-white shadow-xl shadow-brand/25 flex items-center justify-center hover:bg-brand-dark hover:-translate-y-0.5 active:scale-95 transition-all duration-300 ${showScrollTop ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-3 pointer-events-none"}`}
+      >
+        <span className="material-symbols-outlined">arrow_upward</span>
+      </button>
+
       {/* Delete Confirmation Modal */}
       {deleteId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
