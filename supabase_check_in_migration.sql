@@ -61,9 +61,4 @@ CREATE INDEX IF NOT EXISTS expan_check_ins_event_key_idx
 
 ALTER TABLE expan_check_ins ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow anonymous check in"
-  ON expan_check_ins FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public check in lookup"
-  ON expan_check_ins FOR SELECT USING (true);
-CREATE POLICY "Allow public check in delete"
-  ON expan_check_ins FOR DELETE USING (true);
+-- Public check-in now goes through the narrow /api/check-in server endpoint.

@@ -2,16 +2,17 @@ import React, { useMemo, useState } from "react";
 import {
   buildLiveBroadcastMessage,
   LiveLinkMode,
-  sendBulkReminderSms,
 } from "../lib/sms";
+import { estimateSms } from "../lib/smsEncoding";
+import SmsCampaignLauncher from "./SmsCampaignLauncher";
 
 interface BulkLiveSmsPanelProps {
-  phoneNumbers: string[];
+  registrationIds: string[];
   audienceLabel: string;
 }
 
 const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
-  phoneNumbers,
+  registrationIds,
   audienceLabel,
 }) => {
   const [mode, setMode] = useState<LiveLinkMode>("single");
@@ -20,14 +21,6 @@ const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
   const [facebookUrl, setFacebookUrl] = useState("");
   const [tiktokUrl, setTiktokUrl] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [sendError, setSendError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-
-  const uniquePhoneNumbers = useMemo(
-    () => [...new Set(phoneNumbers.map((phone) => phone.replace(/\D/g, "")).filter(Boolean))],
-    [phoneNumbers],
-  );
 
   const messageResult = useMemo(() => {
     try {
@@ -48,40 +41,6 @@ const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
       };
     }
   }, [mode, sharedUrl, youtubeUrl, facebookUrl, tiktokUrl]);
-
-  const handleSend = async () => {
-    setSendError("");
-    setSuccessMessage("");
-
-    if (!messageResult.message) {
-      setSendError(messageResult.error);
-      return;
-    }
-
-    if (uniquePhoneNumbers.length === 0) {
-      setSendError("There are no recipients in the current admin filters.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Send this live broadcast SMS to ${uniquePhoneNumbers.length} unique recipient${uniquePhoneNumbers.length === 1 ? "" : "s"}?`,
-    );
-    if (!confirmed) return;
-
-    setIsSending(true);
-    try {
-      await sendBulkReminderSms(uniquePhoneNumbers, messageResult.message);
-      setSuccessMessage(
-        `Live broadcast SMS sent to ${uniquePhoneNumbers.length} recipient${uniquePhoneNumbers.length === 1 ? "" : "s"}.`,
-      );
-    } catch (error) {
-      setSendError(
-        error instanceof Error ? error.message : "The bulk SMS could not be sent.",
-      );
-    } finally {
-      setIsSending(false);
-    }
-  };
 
   const inputClass =
     "w-full h-12 px-4 text-sm text-brand-dark placeholder:text-brand/35 bg-white border border-brand/15 rounded-xl focus:outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/10 transition-all";
@@ -114,7 +73,7 @@ const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
             <button
               type="button"
               aria-pressed={mode === "single"}
-              onClick={() => { setMode("single"); setSendError(""); setSuccessMessage(""); }}
+              onClick={() => setMode("single")}
               className={`h-10 rounded-lg text-xs font-bold transition-all ${mode === "single" ? "bg-brand text-white shadow-sm" : "text-brand hover:bg-white/70"}`}
             >
               One Link for All
@@ -122,7 +81,7 @@ const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
             <button
               type="button"
               aria-pressed={mode === "platforms"}
-              onClick={() => { setMode("platforms"); setSendError(""); setSuccessMessage(""); }}
+              onClick={() => setMode("platforms")}
               className={`h-10 rounded-lg text-xs font-bold transition-all ${mode === "platforms" ? "bg-brand text-white shadow-sm" : "text-brand hover:bg-white/70"}`}
             >
               Separate Platform Links
@@ -138,7 +97,7 @@ const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
                 placeholder="Paste the live link used for all platforms"
                 className={inputClass}
                 value={sharedUrl}
-                onChange={(event) => { setSharedUrl(event.target.value); setSendError(""); setSuccessMessage(""); }}
+                onChange={(event) => setSharedUrl(event.target.value)}
               />
             </label>
           ) : (
@@ -159,7 +118,7 @@ const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
                     placeholder={`Paste ${platform.label.toLowerCase()}`}
                     className={inputClass}
                     value={platform.value}
-                    onChange={(event) => { platform.setter(event.target.value); setSendError(""); setSuccessMessage(""); }}
+                    onChange={(event) => platform.setter(event.target.value)}
                   />
                 </label>
               ))}
@@ -170,41 +129,26 @@ const BulkLiveSmsPanel: React.FC<BulkLiveSmsPanelProps> = ({
             <div className="rounded-xl bg-[#f8f3ef] border border-brand/10 p-4">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand/65">SMS Preview</p>
-                {messageResult.message && <p className="text-[10px] text-brand/45">{messageResult.message.length} characters</p>}
+                {messageResult.message && (() => {
+                  const estimate = estimateSms(messageResult.message);
+                  return <p className="text-[10px] text-brand/45">{estimate.characters} characters · {estimate.parts} part{estimate.parts === 1 ? "" : "s"} · {estimate.encoding}</p>;
+                })()}
               </div>
               <p className={`whitespace-pre-wrap text-sm leading-relaxed ${messageResult.message ? "text-brand-dark" : "text-brand/40"}`}>
                 {messageResult.message || messageResult.error}
               </p>
             </div>
 
-            <div className="rounded-xl bg-brand p-4 text-white flex flex-col justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">Recipients</p>
-                <p className="text-3xl font-extrabold mt-1">{uniquePhoneNumbers.length}</p>
-                <p className="text-xs text-white/65 mt-1 leading-relaxed">{audienceLabel}</p>
-                <p className="text-[10px] text-white/45 mt-2">Uses the current registration filters above.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleSend()}
-                disabled={isSending || !messageResult.message || uniquePhoneNumbers.length === 0}
-                className="mt-5 w-full h-12 rounded-xl bg-white text-brand font-bold text-sm hover:bg-cream transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isSending ? <><span className="spinner spinner-dark" />Sending...</> : <><span className="material-symbols-outlined text-lg">send</span>Send Bulk SMS</>}
-              </button>
-            </div>
+            <SmsCampaignLauncher
+              kind="live"
+              message={messageResult.message}
+              registrationIds={registrationIds}
+              audienceLabel={audienceLabel}
+              tone="brand"
+              buttonLabel="Review & Send"
+            />
           </div>
 
-          {sendError && (
-            <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-4 py-3 rounded-xl border border-red-200">
-              <span className="material-symbols-outlined text-lg">error</span>{sendError}
-            </div>
-          )}
-          {successMessage && (
-            <div className="flex items-center gap-2 text-emerald-700 text-sm bg-emerald-50 px-4 py-3 rounded-xl border border-emerald-200">
-              <span className="material-symbols-outlined text-lg">check_circle</span>{successMessage}
-            </div>
-          )}
         </div>
       )}
     </section>

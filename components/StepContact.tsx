@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveRegistration } from "../lib/db";
-import { sendWelcomeSms } from "../lib/sms";
 import { FormData } from "../types";
 
 interface StepContactProps {
@@ -37,12 +36,6 @@ const StepContact: React.FC<StepContactProps> = ({
 
     try {
       await saveRegistration(formData);
-
-      try {
-        await sendWelcomeSms(formData.phoneNumber, formData.firstName);
-      } catch (smsErr) {
-        console.warn("SMS failed:", smsErr);
-      }
 
       setShowSuccess(true);
       setTimeout(() => onContinue(), 800);

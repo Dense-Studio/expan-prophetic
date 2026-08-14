@@ -8,6 +8,8 @@ import { fetchRegistrations, deleteRegistration, updateRegistration, Registratio
 import { EVENTS, getEventLabel } from "../lib/event";
 import BulkLiveSmsPanel from "./BulkLiveSmsPanel";
 import BulkReminderSmsPanel from "./BulkReminderSmsPanel";
+import SmsCampaignHistory from "./SmsCampaignHistory";
+import { apiRequest } from "../lib/api";
 
 const PAGE_SIZE = 100;
 
@@ -59,7 +61,6 @@ const AdminDashboard: React.FC = () => {
   const [filterStudent, setFilterStudent] = useState<string>("all");
   const [filterLanguage, setFilterLanguage] = useState<string>("all");
   const [filterAttendanceCount, setFilterAttendanceCount] = useState<string>("all");
-  const [isSuperAdmin] = useState(() => sessionStorage.getItem("expan_admin_role") === "superadmin");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -71,24 +72,23 @@ const AdminDashboard: React.FC = () => {
   const [editError, setEditError] = useState("");
 
   useEffect(() => {
-    if (sessionStorage.getItem("expan_admin_auth") !== "true") {
-      navigate("/login", { replace: true });
-    }
-  }, [navigate]);
-
-  useEffect(() => {
     const load = async () => {
       try {
+        await apiRequest<{ authenticated: boolean }>("/api/admin/session");
         const data = await fetchRegistrations();
         setRegistrations(data);
       } catch (err: any) {
+        if (err?.status === 401) {
+          navigate("/login", { replace: true });
+          return;
+        }
         setError(err.message || "Failed to load registrations");
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     const handleScroll = () => setShowScrollTop(window.scrollY > 500);
@@ -275,7 +275,6 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (!isSuperAdmin) return;
     setDeleteId(id);
   };
 
@@ -323,9 +322,12 @@ const AdminDashboard: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("expan_admin_auth");
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await apiRequest<{ authenticated: boolean }>("/api/admin/logout", { method: "POST" });
+    } finally {
+      navigate("/login");
+    }
   };
 
   const handlePageChange = (page: number) => {
@@ -457,14 +459,16 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           <BulkReminderSmsPanel
-            phoneNumbers={filtered.map((registration) => registration.phone_number)}
+            registrationIds={filtered.map((registration) => registration.id)}
             audienceLabel={smsAudienceLabel}
           />
 
           <BulkLiveSmsPanel
-            phoneNumbers={filtered.map((registration) => registration.phone_number)}
+            registrationIds={filtered.map((registration) => registration.id)}
             audienceLabel={smsAudienceLabel}
           />
+
+          <SmsCampaignHistory />
 
           {error && <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 text-sm font-medium">{error}</div>}
 
@@ -525,20 +529,18 @@ const AdminDashboard: React.FC = () => {
                   </p>
                 </div>
 
-                {isSuperAdmin && (
-                  <div className="flex justify-end pt-3 border-t border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleDelete(reg.id);
-                      }}
-                      onKeyDown={event => event.stopPropagation()}
-                      className="text-red-300/70 hover:text-red-300 text-xs font-bold uppercase tracking-widest flex items-center gap-1"
-                    >
-                      <span className="material-symbols-outlined text-sm">delete</span> Delete
-                    </button>
-                  </div>
-                )}
+                <div className="flex justify-end pt-3 border-t border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleDelete(reg.id);
+                    }}
+                    onKeyDown={event => event.stopPropagation()}
+                    className="text-red-300/70 hover:text-red-300 text-xs font-bold uppercase tracking-widest flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-sm">delete</span> Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>

@@ -23,11 +23,8 @@ CREATE TABLE IF NOT EXISTS expan_registrations (
 -- 2. RLS Policies
 ALTER TABLE expan_registrations ENABLE ROW LEVEL SECURITY;
 
--- Allow anonymous inserts for onboarding
-CREATE POLICY "Allow anonymous registration" ON expan_registrations FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public select for admin" ON expan_registrations FOR SELECT USING (true);
-CREATE POLICY "Allow public update" ON expan_registrations FOR UPDATE USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public delete" ON expan_registrations FOR DELETE USING (true);
+-- Registration and admin access are handled by narrow server endpoints using
+-- the Supabase service role. No anonymous table policies are intentionally added.
 
 -- 3. Event check-ins for returning EXPAN guests
 CREATE TABLE IF NOT EXISTS expan_check_ins (
@@ -45,6 +42,4 @@ CREATE INDEX IF NOT EXISTS expan_check_ins_event_key_idx
 
 ALTER TABLE expan_check_ins ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow anonymous check in" ON expan_check_ins FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public check in lookup" ON expan_check_ins FOR SELECT USING (true);
-CREATE POLICY "Allow public check in delete" ON expan_check_ins FOR DELETE USING (true);
+-- Check-in lookup and writes are handled by /api/check-in.

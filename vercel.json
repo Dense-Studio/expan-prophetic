@@ -1,11 +1,25 @@
 {
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "functions": {
+        "api/**/*.ts": {
+            "maxDuration": 300
+        }
+    },
     "rewrites": [
         {
-            "source": "/api/(.*)",
-            "destination": "/api/$1"
+            "source": "/check-in",
+            "destination": "/index.html"
         },
         {
-            "source": "/(.*)",
+            "source": "/attendance",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/login",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/admin",
             "destination": "/index.html"
         }
     ]

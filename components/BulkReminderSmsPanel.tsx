@@ -1,89 +1,24 @@
-import React, { useMemo, useState } from "react";
-import { sendBulkReminderSms } from "../lib/sms";
+import React, { useState } from "react";
+import { estimateSms } from "../lib/smsEncoding";
+import { REMINDER_TEMPLATES } from "../lib/smsTemplates";
+import SmsCampaignLauncher from "./SmsCampaignLauncher";
 
 interface BulkReminderSmsPanelProps {
-  phoneNumbers: string[];
+  registrationIds: string[];
   audienceLabel: string;
 }
-
-const REMINDER_TEMPLATES = {
-  morning: {
-    label: "Morning",
-    description: "Send earlier in the day",
-    message: `EXPAN is happening tonight!
-
-Join us at 8 PM at Thea Villa Events Hub, Tadisco Down, Takoradi.
-
-Come expectant. We can't wait to welcome you!`,
-  },
-  evening: {
-    label: "6 PM",
-    description: "Fun two-hour reminder",
-    message: `Two hours to go!
-
-Are you dressed and ready? EXPAN starts at 8 PM at Thea Villa, Tadisco Down.
-
-Bring your friends and an expectant heart. Don't be late oooooo!`,
-  },
-} as const;
 
 const DEFAULT_REMINDER_MESSAGE = REMINDER_TEMPLATES.morning.message;
 
 const BulkReminderSmsPanel: React.FC<BulkReminderSmsPanelProps> = ({
-  phoneNumbers,
+  registrationIds,
   audienceLabel,
 }) => {
   const [message, setMessage] = useState(DEFAULT_REMINDER_MESSAGE);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [sendError, setSendError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-
-  const uniquePhoneNumbers = useMemo(
-    () => [...new Set(phoneNumbers.map((phone) => phone.replace(/\D/g, "")).filter(Boolean))],
-    [phoneNumbers],
-  );
 
   const trimmedMessage = message.trim();
-  const smsParts = trimmedMessage.length === 0
-    ? 0
-    : trimmedMessage.length <= 160
-      ? 1
-      : Math.ceil(trimmedMessage.length / 153);
-
-  const handleSend = async () => {
-    setSendError("");
-    setSuccessMessage("");
-
-    if (!trimmedMessage) {
-      setSendError("Enter the reminder message you want to send.");
-      return;
-    }
-    if (uniquePhoneNumbers.length === 0) {
-      setSendError("There are no recipients in the current admin filters.");
-      return;
-    }
-
-    const estimatedMessages = uniquePhoneNumbers.length * smsParts;
-    const confirmed = window.confirm(
-      `Send this programme reminder to ${uniquePhoneNumbers.length} unique recipient${uniquePhoneNumbers.length === 1 ? "" : "s"}?\n\nEstimated SMS units: ${estimatedMessages.toLocaleString()}`,
-    );
-    if (!confirmed) return;
-
-    setIsSending(true);
-    try {
-      await sendBulkReminderSms(uniquePhoneNumbers, trimmedMessage);
-      setSuccessMessage(
-        `Programme reminder sent to ${uniquePhoneNumbers.length} recipient${uniquePhoneNumbers.length === 1 ? "" : "s"}.`,
-      );
-    } catch (error) {
-      setSendError(
-        error instanceof Error ? error.message : "The programme reminder could not be sent.",
-      );
-    } finally {
-      setIsSending(false);
-    }
-  };
+  const smsEstimate = estimateSms(trimmedMessage);
 
   return (
     <section className="bg-white/75 border border-brand/10 rounded-2xl shadow-sm overflow-hidden">
@@ -118,7 +53,7 @@ const BulkReminderSmsPanel: React.FC<BulkReminderSmsPanelProps> = ({
                   <button
                     key={key}
                     type="button"
-                    onClick={() => { setMessage(template.message); setSendError(""); setSuccessMessage(""); }}
+                    onClick={() => setMessage(template.message)}
                     className={`rounded-xl border px-4 py-3 text-left transition-all ${
                       isActive
                         ? "border-amber-500 bg-amber-50 text-amber-900 ring-2 ring-amber-500/10"
@@ -146,7 +81,7 @@ const BulkReminderSmsPanel: React.FC<BulkReminderSmsPanelProps> = ({
               <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand/70">Reminder Message</span>
               <button
                 type="button"
-                onClick={() => { setMessage(DEFAULT_REMINDER_MESSAGE); setSendError(""); setSuccessMessage(""); }}
+                onClick={() => setMessage(DEFAULT_REMINDER_MESSAGE)}
                 className="text-[11px] font-bold text-brand hover:text-brand-dark transition-colors"
               >
                 Reset to Morning
@@ -154,7 +89,7 @@ const BulkReminderSmsPanel: React.FC<BulkReminderSmsPanelProps> = ({
             </span>
             <textarea
               value={message}
-              onChange={(event) => { setMessage(event.target.value); setSendError(""); setSuccessMessage(""); }}
+              onChange={(event) => setMessage(event.target.value)}
               rows={9}
               maxLength={918}
               className="w-full resize-y rounded-xl border border-brand/15 bg-white px-4 py-3 text-sm leading-relaxed text-brand-dark placeholder:text-brand/35 focus:outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/10 transition-all"
@@ -167,9 +102,9 @@ const BulkReminderSmsPanel: React.FC<BulkReminderSmsPanelProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand/65">SMS Preview</p>
                 <div className="flex items-center gap-2 text-[10px] text-brand/45">
-                  <span>{trimmedMessage.length} characters</span>
+                  <span>{smsEstimate.characters} characters</span>
                   <span>•</span>
-                  <span>{smsParts} SMS part{smsParts === 1 ? "" : "s"}</span>
+                  <span>{smsEstimate.parts} SMS part{smsEstimate.parts === 1 ? "" : "s"} · {smsEstimate.encoding}</span>
                 </div>
               </div>
               <p className={`whitespace-pre-wrap text-sm leading-relaxed ${trimmedMessage ? "text-brand-dark" : "text-brand/40"}`}>
@@ -177,34 +112,15 @@ const BulkReminderSmsPanel: React.FC<BulkReminderSmsPanelProps> = ({
               </p>
             </div>
 
-            <div className="rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 p-4 text-white flex flex-col justify-between shadow-sm">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/65">Recipients</p>
-                <p className="text-3xl font-extrabold mt-1">{uniquePhoneNumbers.length.toLocaleString()}</p>
-                <p className="text-xs text-white/75 mt-1 leading-relaxed">{audienceLabel}</p>
-                <p className="text-[10px] text-white/55 mt-2">Uses all records matching the current filters—not only the visible page.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleSend()}
-                disabled={isSending || !trimmedMessage || uniquePhoneNumbers.length === 0}
-                className="mt-5 w-full h-12 rounded-xl bg-white text-amber-700 font-bold text-sm hover:bg-cream transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isSending ? <><span className="spinner spinner-dark" />Sending...</> : <><span className="material-symbols-outlined text-lg">send</span>Send Reminder</>}
-              </button>
-            </div>
+            <SmsCampaignLauncher
+              kind="reminder"
+              message={trimmedMessage}
+              registrationIds={registrationIds}
+              audienceLabel={audienceLabel}
+              tone="amber"
+              buttonLabel="Review & Send"
+            />
           </div>
-
-          {sendError && (
-            <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 px-4 py-3 rounded-xl border border-red-200">
-              <span className="material-symbols-outlined text-lg">error</span>{sendError}
-            </div>
-          )}
-          {successMessage && (
-            <div className="flex items-center gap-2 text-emerald-700 text-sm bg-emerald-50 px-4 py-3 rounded-xl border border-emerald-200">
-              <span className="material-symbols-outlined text-lg">check_circle</span>{successMessage}
-            </div>
-          )}
         </div>
       )}
     </section>

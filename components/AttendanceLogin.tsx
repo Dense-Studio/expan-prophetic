@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { findByPhone, recordEventCheckIn } from "../lib/attendance";
+import { checkInGuest } from "../lib/attendance";
 import { EVENT } from "../lib/event";
-import { sendCheckInSms } from "../lib/sms";
 import type { ExpanAttendanceCount, PreferredLanguage } from "../types";
 import { useEventAccess } from "../lib/useEventAccess";
 
@@ -44,36 +43,12 @@ const AttendanceLogin: React.FC = () => {
     setNotFound(false);
 
     try {
-      const registration = await findByPhone(phone);
-      if (!registration) {
-        setNotFound(true);
-        return;
-      }
-
-      const result = await recordEventCheckIn(
-        registration.id,
-        registration.phone_number,
-        attendanceCount,
-        preferredLanguage,
-      );
-
-      let smsSent = result.alreadyCheckedIn;
-      if (!result.alreadyCheckedIn) {
-        try {
-          await sendCheckInSms(registration.phone_number, registration.first_name);
-          smsSent = true;
-        } catch (smsError) {
-          console.warn("Check-in recorded, but SMS failed:", smsError);
-        }
-      }
-
-      setSuccess({
-        name: `${registration.first_name} ${registration.last_name}`,
-        alreadyCheckedIn: result.alreadyCheckedIn,
-        smsSent,
-      });
+      const result = await checkInGuest(phone, attendanceCount, preferredLanguage);
+      setSuccess(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      const apiError = err as Error & { data?: { notFound?: boolean } };
+      if (apiError.data?.notFound) setNotFound(true);
+      else setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setIsSubmitting(false);
     }

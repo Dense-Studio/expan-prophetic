@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiRequest } from "../lib/api";
 
 const LoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
@@ -8,23 +9,23 @@ const LoginPage: React.FC = () => {
   const [shakeError, setShakeError] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    setTimeout(() => {
-      if (password === "Juanita@93") {
-        sessionStorage.setItem("expan_admin_auth", "true");
-        sessionStorage.setItem("expan_admin_role", "superadmin");
-        navigate("/admin");
-      } else {
-        setError("Incorrect password.");
-        setShakeError(true);
-        setTimeout(() => setShakeError(false), 600);
-        setLoading(false);
-      }
-    }, 600);
+    try {
+      await apiRequest<{ authenticated: boolean }>("/api/admin/login", {
+        method: "POST",
+        body: JSON.stringify({ password }),
+      });
+      navigate("/admin");
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : "Could not sign in.");
+      setShakeError(true);
+      window.setTimeout(() => setShakeError(false), 600);
+      setLoading(false);
+    }
   };
 
   const loginCard = (
