@@ -16,6 +16,23 @@ async function fetchAllRegistrations() {
   return registrations;
 }
 
+async function fetchAllCheckIns() {
+  const supabase = getSupabaseAdmin();
+  const checkIns: unknown[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("expan_check_ins")
+      .select("id, registration_id, event_key, phone_number, attendance_count, check_in_time")
+      .order("check_in_time", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (error) throw new Error(error.message);
+    checkIns.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return checkIns;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!req.method || !["GET", "PATCH", "DELETE"].includes(req.method)) {
     return methodNotAllowed(res, ["GET", "PATCH", "DELETE"]);
@@ -24,7 +41,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const supabase = getSupabaseAdmin();
-    if (req.method === "GET") return res.status(200).json({ registrations: await fetchAllRegistrations() });
+    if (req.method === "GET") {
+      if (req.query.view === "check-ins") {
+        return res.status(200).json({ checkIns: await fetchAllCheckIns() });
+      }
+      return res.status(200).json({ registrations: await fetchAllRegistrations() });
+    }
 
     const id = typeof req.body?.id === "string" ? req.body.id : "";
     if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: "Invalid registration ID." });

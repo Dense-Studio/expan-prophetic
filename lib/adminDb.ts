@@ -36,7 +36,7 @@ export async function fetchRegistrations(): Promise<Registration[]> {
 }
 
 export async function fetchCheckIns(): Promise<CheckIn[]> {
-  const result = await apiRequest<{ checkIns: CheckIn[] }>("/api/admin/check-ins");
+  const result = await apiRequest<{ checkIns: CheckIn[] }>("/api/admin/registrations?view=check-ins");
   return result.checkIns;
 }
 
