@@ -11,6 +11,12 @@ export const EVENTS = {
     name: "Extreme Prophetic EXPAN All-Night — August 2026",
     date: "Friday, 14th August 2026",
   },
+  "legacy-ministry-contact-2025": {
+    key: "legacy-ministry-contact-2025",
+    shortName: "Legacy Contacts",
+    name: "Apostle Ministry Contacts — 2025",
+    date: "Legacy ministry contact import",
+  },
 } as const;
 
 export type EventKey = keyof typeof EVENTS;
@@ -31,7 +37,8 @@ export const EVENT = {
 } as const;
 
 export function getEventLabel(eventKey: string | null | undefined): string {
-  return eventKey && eventKey in EVENTS
+  if (!eventKey) return "March 2026";
+  return eventKey in EVENTS
     ? EVENTS[eventKey as EventKey].shortName
-    : "March 2026";
+    : "Other";
 }

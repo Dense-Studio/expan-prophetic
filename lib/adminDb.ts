@@ -22,17 +22,28 @@ export interface Registration {
 }
 
 export async function fetchRegistrations(): Promise<Registration[]> {
-  const { data, error } = await supabase
-    .from("expan_registrations")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const registrations: Registration[] = [];
+  const pageSize = 1000;
 
-  if (error) {
-    console.error("❌ Failed to fetch registrations:", error.message);
-    throw new Error(`Database error: ${error.message}`);
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("expan_registrations")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error("❌ Failed to fetch registrations:", error.message);
+      throw new Error(`Database error: ${error.message}`);
+    }
+
+    const page = (data as Registration[]) || [];
+    registrations.push(...page);
+    if (page.length < pageSize) break;
   }
 
-  return (data as Registration[]) || [];
+  return registrations;
 }
 
 export async function deleteRegistration(id: string): Promise<void> {
