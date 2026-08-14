@@ -4,7 +4,14 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchRegistrations, deleteRegistration, updateRegistration, Registration } from "../lib/adminDb";
+import {
+  fetchCheckIns,
+  fetchRegistrations,
+  deleteRegistration,
+  updateRegistration,
+  CheckIn,
+  Registration,
+} from "../lib/adminDb";
 import { EVENTS, getEventLabel } from "../lib/event";
 import BulkLiveSmsPanel from "./BulkLiveSmsPanel";
 import BulkReminderSmsPanel from "./BulkReminderSmsPanel";
@@ -12,6 +19,11 @@ import SmsCampaignHistory from "./SmsCampaignHistory";
 import { apiRequest } from "../lib/api";
 
 const PAGE_SIZE = 100;
+type AdminView = "registrations" | "check-ins";
+
+interface CheckInWithRegistration extends CheckIn {
+  registration: Registration;
+}
 
 interface RegistrationEditForm {
   firstName: string;
@@ -53,6 +65,8 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const registrationsTopRef = useRef<HTMLDivElement>(null);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
+  const [activeView, setActiveView] = useState<AdminView>("registrations");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -66,14 +80,19 @@ const AdminDashboard: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
+  const [selectedCheckIn, setSelectedCheckIn] = useState<CheckIn | null>(null);
   const [editForm, setEditForm] = useState<RegistrationEditForm | null>(null);
   const [isEditingRegistration, setIsEditingRegistration] = useState(false);
   const [isSavingRegistration, setIsSavingRegistration] = useState(false);
   const [editError, setEditError] = useState("");
 
-  const refreshRegistrations = useCallback(async () => {
-    const data = await fetchRegistrations();
-    setRegistrations(data);
+  const refreshAdminData = useCallback(async () => {
+    const [registrationData, checkInData] = await Promise.all([
+      fetchRegistrations(),
+      fetchCheckIns(),
+    ]);
+    setRegistrations(registrationData);
+    setCheckIns(checkInData);
     setError("");
   }, []);
 
@@ -81,7 +100,7 @@ const AdminDashboard: React.FC = () => {
     const load = async () => {
       try {
         await apiRequest<{ authenticated: boolean }>("/api/admin/session");
-        await refreshRegistrations();
+        await refreshAdminData();
       } catch (err: any) {
         if (err?.status === 401) {
           navigate("/login", { replace: true });
@@ -93,7 +112,7 @@ const AdminDashboard: React.FC = () => {
       }
     };
     load();
-  }, [navigate, refreshRegistrations]);
+  }, [navigate, refreshAdminData]);
 
   useEffect(() => {
     const handleScroll = () => setShowScrollTop(window.scrollY > 500);
@@ -109,6 +128,7 @@ const AdminDashboard: React.FC = () => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !isSavingRegistration) {
         setSelectedRegistration(null);
+        setSelectedCheckIn(null);
         setIsEditingRegistration(false);
         setEditError("");
       }
@@ -124,7 +144,7 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
+  }, [activeView, searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
 
   const filtered = useMemo(() => {
     let items = registrations;
@@ -170,9 +190,54 @@ const AdminDashboard: React.FC = () => {
     return items;
   }, [registrations, searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const registrationsById = useMemo(
+    () => new Map(registrations.map(registration => [registration.id, registration])),
+    [registrations],
+  );
+
+  const filteredCheckIns = useMemo<CheckInWithRegistration[]>(() => {
+    let items = checkIns.flatMap(checkIn => {
+      const registration = registrationsById.get(checkIn.registration_id);
+      return registration ? [{ ...checkIn, registration }] : [];
+    });
+
+    if (filterEvent !== "all") {
+      items = items.filter(checkIn => checkIn.event_key === filterEvent);
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      items = items.filter(({ registration, phone_number }) =>
+        registration.first_name.toLowerCase().includes(query) ||
+        registration.last_name.toLowerCase().includes(query) ||
+        phone_number.includes(query) ||
+        (registration.location_name || "").toLowerCase().includes(query)
+      );
+    }
+
+    if (filterSource !== "all") {
+      items = items.filter(({ registration }) => registration.referral_source === filterSource);
+    }
+    if (filterStudent === "yes") {
+      items = items.filter(({ registration }) => registration.is_student);
+    } else if (filterStudent === "no") {
+      items = items.filter(({ registration }) => !registration.is_student);
+    }
+    if (filterLanguage !== "all") {
+      items = items.filter(({ registration }) => registration.preferred_language === filterLanguage);
+    }
+    if (filterAttendanceCount !== "all") {
+      items = items.filter(checkIn => checkIn.attendance_count === Number(filterAttendanceCount));
+    }
+
+    return items;
+  }, [checkIns, registrationsById, searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
+
+  const activeItemCount = activeView === "check-ins" ? filteredCheckIns.length : filtered.length;
+  const totalPages = Math.max(1, Math.ceil(activeItemCount / PAGE_SIZE));
   const pageStart = (currentPage - 1) * PAGE_SIZE;
   const paginatedRegistrations = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const paginatedCheckIns = filteredCheckIns.slice(pageStart, pageStart + PAGE_SIZE);
 
   const paginationItems = useMemo<Array<number | string>>(() => {
     if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -203,6 +268,15 @@ const AdminDashboard: React.FC = () => {
     );
   }, [registrations, filterEvent]);
 
+  const editionCheckIns = useMemo(() => {
+    if (filterEvent === "all") return checkIns;
+    return checkIns.filter(checkIn => checkIn.event_key === filterEvent);
+  }, [checkIns, filterEvent]);
+
+  const checkedInStudents = useMemo(() => editionCheckIns.filter(checkIn =>
+    registrationsById.get(checkIn.registration_id)?.is_student
+  ).length, [editionCheckIns, registrationsById]);
+
   const smsAudienceLabel = useMemo(() => {
     const edition = filterEvent === "all"
       ? "all EXPAN editions"
@@ -217,8 +291,9 @@ const AdminDashboard: React.FC = () => {
     return hasExtraFilters ? `${edition}, matching the active filters` : edition;
   }, [filterEvent, searchQuery, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
 
-  const openRegistrationDetails = (registration: Registration) => {
+  const openRegistrationDetails = (registration: Registration, checkIn: CheckIn | null = null) => {
     setSelectedRegistration(registration);
+    setSelectedCheckIn(checkIn);
     setEditForm(createEditForm(registration));
     setIsEditingRegistration(false);
     setEditError("");
@@ -227,6 +302,7 @@ const AdminDashboard: React.FC = () => {
   const closeRegistrationDetails = () => {
     if (isSavingRegistration) return;
     setSelectedRegistration(null);
+    setSelectedCheckIn(null);
     setEditForm(null);
     setIsEditingRegistration(false);
     setEditError("");
@@ -289,6 +365,7 @@ const AdminDashboard: React.FC = () => {
     try {
       await deleteRegistration(deleteId);
       setRegistrations(prev => prev.filter(r => r.id !== deleteId));
+      setCheckIns(previous => previous.filter(checkIn => checkIn.registration_id !== deleteId));
       setDeleteId(null);
     } catch (err: any) {
       alert(err.message);
@@ -298,20 +375,36 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    const headers = ["EXPAN Edition", "First Name", "Last Name", "Phone", "Preferred Language", "EXPAN Attendance", "Location", "Referral Source", "Student", "School", "Registered At"];
-    const rows = filtered.map(r => [
-      getEventLabel(r.event_key),
-      r.first_name,
-      r.last_name,
-      r.phone_number,
-      r.preferred_language || "",
-      r.expan_attendance_count || "",
-      r.location_name || "",
-      r.referral_source || "",
-      r.is_student ? "Yes" : "No",
-      r.school || "",
-      new Date(r.created_at).toLocaleDateString(),
-    ]);
+    const isCheckInExport = activeView === "check-ins";
+    const headers = isCheckInExport
+      ? ["EXPAN Edition", "First Name", "Last Name", "Phone", "Preferred Language", "EXPAN Attendance", "Location", "Student", "School", "Checked In At"]
+      : ["EXPAN Edition", "First Name", "Last Name", "Phone", "Preferred Language", "EXPAN Attendance", "Location", "Referral Source", "Student", "School", "Registered At"];
+    const rows = isCheckInExport
+      ? filteredCheckIns.map(({ registration, event_key, phone_number, attendance_count, check_in_time }) => [
+          getEventLabel(event_key),
+          registration.first_name,
+          registration.last_name,
+          phone_number,
+          registration.preferred_language || "",
+          attendance_count || "",
+          registration.location_name || "",
+          registration.is_student ? "Yes" : "No",
+          registration.school || "",
+          new Date(check_in_time).toLocaleString(),
+        ])
+      : filtered.map(r => [
+          getEventLabel(r.event_key),
+          r.first_name,
+          r.last_name,
+          r.phone_number,
+          r.preferred_language || "",
+          r.expan_attendance_count || "",
+          r.location_name || "",
+          r.referral_source || "",
+          r.is_student ? "Yes" : "No",
+          r.school || "",
+          new Date(r.created_at).toLocaleDateString(),
+        ]);
 
     const csvContent = [headers, ...rows]
       .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
@@ -322,7 +415,8 @@ const AdminDashboard: React.FC = () => {
     const link = document.createElement("a");
     link.href = url;
     const edition = filterEvent === "all" ? "all-events" : getEventLabel(filterEvent).toLowerCase().replace(/\s+/g, "-");
-    link.download = `expan-${edition}-registrations-${new Date().toISOString().split("T")[0]}.csv`;
+    const recordType = isCheckInExport ? "check-ins" : "registrations";
+    link.download = `expan-${edition}-${recordType}-${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -366,13 +460,14 @@ const AdminDashboard: React.FC = () => {
           </div>
           <div>
             <h1 className="font-bold text-sm text-brand-dark">EXPAN Admin</h1>
-            <p className="text-[10px] text-brand/50 uppercase tracking-widest">Registrations Management</p>
+            <p className="text-[10px] text-brand/50 uppercase tracking-widest">Registrations &amp; Attendance</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={handleExportCSV} className="flex items-center gap-1.5 bg-brand hover:bg-brand-dark text-white px-3.5 py-2 rounded-lg transition-all text-xs font-bold shadow-sm">
             <span className="material-symbols-outlined text-sm">download</span>
-            Export
+            <span className="hidden sm:inline">Export {activeView === "check-ins" ? "Check-ins" : "Registrations"}</span>
+            <span className="sm:hidden">Export</span>
           </button>
           <button onClick={handleLogout} className="text-brand/50 hover:text-brand transition-colors text-xs font-bold px-2 py-2">Logout</button>
         </div>
@@ -381,18 +476,38 @@ const AdminDashboard: React.FC = () => {
       <main className="max-w-7xl mx-auto p-4 md:p-6 relative z-10">
         <div className="space-y-4 md:space-y-6">
 
+          <div className="inline-flex w-full sm:w-auto rounded-2xl border border-brand/15 bg-white/75 p-1.5 shadow-sm" role="tablist" aria-label="Admin records view">
+            {([
+              ["registrations", "Registrations", "how_to_reg", registrations.length],
+              ["check-ins", "Checked In", "where_to_vote", checkIns.length],
+            ] as Array<[AdminView, string, string, number]>).map(([view, label, icon, count]) => (
+              <button
+                key={view}
+                type="button"
+                role="tab"
+                aria-selected={activeView === view}
+                onClick={() => setActiveView(view)}
+                className={`flex-1 sm:flex-none min-w-0 h-12 px-4 rounded-xl flex items-center justify-center gap-2 text-sm font-extrabold transition-all ${activeView === view ? "bg-brand text-white shadow-md shadow-brand/20" : "text-brand/65 hover:bg-brand/5 hover:text-brand"}`}
+              >
+                <span className="material-symbols-outlined text-lg">{icon}</span>
+                <span>{label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] ${activeView === view ? "bg-white/15 text-white" : "bg-brand/8 text-brand/60"}`}>{count.toLocaleString()}</span>
+              </button>
+            ))}
+          </div>
+
           {/* Stats Bar */}
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-brand rounded-xl p-4 text-center shadow-md shadow-brand/15">
-              <p className="text-2xl md:text-3xl font-extrabold text-white">{editionRegistrations.length}</p>
-              <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">In Edition</p>
+              <p className="text-2xl md:text-3xl font-extrabold text-white">{activeView === "check-ins" ? editionCheckIns.length : editionRegistrations.length}</p>
+              <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">{activeView === "check-ins" ? "Checked In" : "In Edition"}</p>
             </div>
             <div className="bg-brand rounded-xl p-4 text-center shadow-md shadow-brand/15">
-              <p className="text-2xl md:text-3xl font-extrabold text-amber-300">{editionRegistrations.filter(r => r.is_student).length}</p>
+              <p className="text-2xl md:text-3xl font-extrabold text-amber-300">{activeView === "check-ins" ? checkedInStudents : editionRegistrations.filter(r => r.is_student).length}</p>
               <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">Students</p>
             </div>
             <div className="bg-brand rounded-xl p-4 text-center shadow-md shadow-brand/15">
-              <p className="text-2xl md:text-3xl font-extrabold text-white">{paginatedRegistrations.length}</p>
+              <p className="text-2xl md:text-3xl font-extrabold text-white">{activeView === "check-ins" ? paginatedCheckIns.length : paginatedRegistrations.length}</p>
               <p className="text-[10px] text-white/60 uppercase tracking-wider mt-1">On Page</p>
             </div>
           </div>
@@ -463,25 +578,43 @@ const AdminDashboard: React.FC = () => {
             </select>
           </div>
 
-          <BulkReminderSmsPanel
-            registrationIds={filtered.map((registration) => registration.id)}
-            audienceLabel={smsAudienceLabel}
-          />
+          {activeView === "registrations" && (
+            <>
+              <BulkReminderSmsPanel
+                registrationIds={filtered.map((registration) => registration.id)}
+                audienceLabel={smsAudienceLabel}
+              />
 
-          <BulkLiveSmsPanel
-            registrationIds={filtered.map((registration) => registration.id)}
-            audienceLabel={smsAudienceLabel}
-            onRefreshAudience={refreshRegistrations}
-          />
+              <BulkLiveSmsPanel
+                registrationIds={filtered.map((registration) => registration.id)}
+                audienceLabel={smsAudienceLabel}
+                onRefreshAudience={refreshAdminData}
+              />
 
-          <SmsCampaignHistory />
+              <SmsCampaignHistory />
+            </>
+          )}
 
           {error && <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 text-sm font-medium">{error}</div>}
 
-          {/* Registration Cards */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.16em] font-extrabold text-brand/45">{activeView === "check-ins" ? "Attendance register" : "People directory"}</p>
+              <h2 className="font-serif text-2xl sm:text-3xl text-brand-dark">{activeView === "check-ins" ? "People who checked in" : "Registered attendees"}</h2>
+              <p className="text-xs text-brand/50 mt-1">{activeItemCount.toLocaleString()} record{activeItemCount === 1 ? "" : "s"} match the active filters.</p>
+            </div>
+            {activeView === "check-ins" && (
+              <button type="button" onClick={() => void refreshAdminData()} className="h-11 px-4 rounded-xl border border-brand/15 bg-white text-brand text-xs font-bold flex items-center justify-center gap-2 hover:border-brand/35 hover:bg-brand-50 transition-colors">
+                <span className="material-symbols-outlined text-lg">refresh</span>
+                Refresh check-ins
+              </button>
+            )}
+          </div>
+
+          {/* Registration and check-in cards */}
           <div ref={registrationsTopRef} className="scroll-mt-24" />
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {paginatedRegistrations.map(reg => (
+            {activeView === "registrations" && paginatedRegistrations.map(reg => (
               <div
                 key={reg.id}
                 role="button"
@@ -549,18 +682,81 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             ))}
+            {activeView === "check-ins" && paginatedCheckIns.map(checkIn => {
+              const reg = checkIn.registration;
+              return (
+                <div
+                  key={checkIn.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`View check-in details for ${reg.first_name} ${reg.last_name}`}
+                  onClick={() => openRegistrationDetails(reg, checkIn)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openRegistrationDetails(reg, checkIn);
+                    }
+                  }}
+                  className="relative overflow-hidden bg-[#611828] rounded-2xl p-5 group hover:bg-[#4e1320] hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-400/25 transition-all duration-300 shadow-md shadow-brand/15 cursor-pointer"
+                >
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-bl-full pointer-events-none" />
+                  <div className="relative flex items-center gap-3.5 mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-400/20 flex items-center justify-center text-emerald-200 font-bold text-sm border border-emerald-300/25">
+                      {reg.first_name[0]}{reg.last_name[0]}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-base text-white truncate">{reg.first_name} {reg.last_name}</h3>
+                      <p className="text-sm text-white/55">{checkIn.phone_number}</p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 bg-emerald-400/15 text-emerald-200 text-[9px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full border border-emerald-300/20">
+                      <span className="material-symbols-outlined text-xs">check_circle</span>
+                      Checked in
+                    </span>
+                  </div>
+
+                  <div className="relative space-y-2.5">
+                    <p className="text-sm text-white/65 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-emerald-300/70">schedule</span>
+                      <span className="text-white/90 font-semibold">{new Date(checkIn.check_in_time).toLocaleString()}</span>
+                    </p>
+                    <p className="text-sm text-white/60 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-white/40">event</span>
+                      {getEventLabel(checkIn.event_key)}
+                    </p>
+                    <p className="text-sm text-white/60 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-white/40">location_on</span>
+                      {reg.location_name || "Unknown Location"}
+                    </p>
+                    <p className="text-sm text-white/60 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-white/40">translate</span>
+                      Language: <span className="text-white/85 font-medium">{reg.preferred_language || "Not specified"}</span>
+                    </p>
+                    <p className="text-sm text-white/60 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-white/40">event_repeat</span>
+                      EXPAN history: <span className="text-white/85 font-medium">{checkIn.attendance_count ?? "Not specified"}</span>
+                    </p>
+                    {reg.is_student && (
+                      <p className="text-sm text-amber-200/80 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-base">school</span>
+                        {reg.school || "Student"}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          {filtered.length === 0 && !loading && (
+          {activeItemCount === 0 && !loading && (
             <div className="text-center py-20 bg-white/40 rounded-3xl border-2 border-dashed border-brand/15">
-              <span className="material-symbols-outlined text-5xl text-brand/20 mb-4 block">person_search</span>
-              <p className="text-brand/40 text-sm">No registered members found.</p>
+              <span className="material-symbols-outlined text-5xl text-brand/20 mb-4 block">{activeView === "check-ins" ? "where_to_vote" : "person_search"}</span>
+              <p className="text-brand/40 text-sm">{activeView === "check-ins" ? "No check-ins match these filters yet." : "No registered members found."}</p>
             </div>
           )}
 
-          {filtered.length > 0 && (
-            <nav className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl bg-white/70 border border-brand/15 px-4 py-4 shadow-sm" aria-label="Registration pagination">
+          {activeItemCount > 0 && (
+            <nav className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl bg-white/70 border border-brand/15 px-4 py-4 shadow-sm" aria-label={`${activeView === "check-ins" ? "Check-in" : "Registration"} pagination`}>
               <p className="text-xs sm:text-sm text-brand/60 font-medium">
-                Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} of {filtered.length.toLocaleString()}
+                Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, activeItemCount)} of {activeItemCount.toLocaleString()}
               </p>
 
               {totalPages > 1 && (
@@ -646,8 +842,9 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="text-[10px] uppercase tracking-[0.16em] font-extrabold text-white/60">Registration Details</span>
-                    <span className="rounded-full bg-white/12 border border-white/15 px-2.5 py-1 text-[10px] font-bold text-white/85">{getEventLabel(selectedRegistration.event_key)}</span>
+                    <span className="text-[10px] uppercase tracking-[0.16em] font-extrabold text-white/60">{selectedCheckIn ? "Check-in Details" : "Registration Details"}</span>
+                    <span className="rounded-full bg-white/12 border border-white/15 px-2.5 py-1 text-[10px] font-bold text-white/85">{getEventLabel(selectedCheckIn?.event_key || selectedRegistration.event_key)}</span>
+                    {selectedCheckIn && <span className="rounded-full bg-emerald-400/15 border border-emerald-300/25 px-2.5 py-1 text-[10px] font-bold text-emerald-200">CHECKED IN</span>}
                     {selectedRegistration.is_student && <span className="rounded-full bg-amber-300/15 border border-amber-300/25 px-2.5 py-1 text-[10px] font-bold text-amber-200">STUDENT</span>}
                   </div>
                   <h2 id="registration-detail-title" className="font-serif text-3xl sm:text-4xl text-white leading-tight break-words">
@@ -757,6 +954,22 @@ const AdminDashboard: React.FC = () => {
                 </form>
               ) : (
                 <>
+                  {selectedCheckIn && (
+                    <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 shrink-0 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
+                          <span className="material-symbols-outlined">where_to_vote</span>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.13em] font-extrabold text-emerald-700">Attendance confirmed</p>
+                          <p className="text-sm font-bold text-emerald-950 mt-0.5">{new Date(selectedCheckIn.check_in_time).toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <span className="self-start sm:self-auto rounded-full bg-white border border-emerald-200 px-3 py-1.5 text-xs font-extrabold text-emerald-700">
+                        EXPAN {selectedCheckIn.attendance_count ?? "—"}
+                      </span>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
                       { icon: "location_on", label: "Location", value: selectedRegistration.location_name || "Not specified" },

@@ -21,9 +21,23 @@ export interface Registration {
   created_at: string;
 }
 
+export interface CheckIn {
+  id: string;
+  registration_id: string;
+  event_key: string;
+  phone_number: string;
+  attendance_count: number | null;
+  check_in_time: string;
+}
+
 export async function fetchRegistrations(): Promise<Registration[]> {
   const result = await apiRequest<{ registrations: Registration[] }>("/api/admin/registrations");
   return result.registrations;
+}
+
+export async function fetchCheckIns(): Promise<CheckIn[]> {
+  const result = await apiRequest<{ checkIns: CheckIn[] }>("/api/admin/check-ins");
+  return result.checkIns;
 }
 
 export async function deleteRegistration(id: string): Promise<void> {
