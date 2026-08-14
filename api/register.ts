@@ -52,6 +52,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (error?.code === "23505") return res.status(409).json({ error: "This phone number is already registered. Please use Check In instead." });
     if (error) throw new Error(error.message);
 
+    const { error: checkInError } = await supabase.from("expan_check_ins").upsert({
+      registration_id: data.id,
+      event_key: EVENT.key,
+      phone_number: localPhone,
+      attendance_count: attendanceCount,
+    }, {
+      onConflict: "registration_id,event_key",
+      ignoreDuplicates: true,
+    });
+    if (checkInError) throw new Error(`Registration was saved, but attendance could not be recorded: ${checkInError.message}`);
+
     let smsSent = false;
     try {
       await sendTransactionalSms(normalizedPhone, eventWelcomeMessage(firstName));
@@ -59,7 +70,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (smsError) {
       console.error("Registration saved but welcome SMS failed", smsError);
     }
-    return res.status(201).json({ registration: { id: data.id, phoneNumber: localPhone }, smsSent });
+    return res.status(201).json({
+      registration: { id: data.id, phoneNumber: localPhone },
+      checkedIn: true,
+      smsSent,
+    });
   } catch (error) {
     return sendServerError(res, error);
   }
