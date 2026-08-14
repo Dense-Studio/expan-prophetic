@@ -6,14 +6,28 @@ interface BulkReminderSmsPanelProps {
   audienceLabel: string;
 }
 
-const DEFAULT_REMINDER_MESSAGE = `EXPAN is happening tonight!
+const REMINDER_TEMPLATES = {
+  morning: {
+    label: "Morning",
+    description: "Send earlier in the day",
+    message: `EXPAN is happening tonight!
 
-Join us for the August edition of EXPAN All-Night 2026.
+Join us at 8 PM at Thea Villa Events Hub, Tadisco Down, Takoradi.
 
-Venue: Thea Villa Events Hub, Tadisco Down, Takoradi
-Time: 8 PM prompt
+Come expectant. We can't wait to welcome you!`,
+  },
+  evening: {
+    label: "6 PM",
+    description: "Fun two-hour reminder",
+    message: `Two hours to go!
 
-Come expectant for an intimate time with God. We can't wait to welcome you!`;
+Are you dressed and ready? EXPAN starts at 8 PM at Thea Villa, Tadisco Down.
+
+Bring your friends and an expectant heart. Don't be late oooooo!`,
+  },
+} as const;
+
+const DEFAULT_REMINDER_MESSAGE = REMINDER_TEMPLATES.morning.message;
 
 const BulkReminderSmsPanel: React.FC<BulkReminderSmsPanelProps> = ({
   phoneNumbers,
@@ -95,6 +109,38 @@ const BulkReminderSmsPanel: React.FC<BulkReminderSmsPanelProps> = ({
 
       {isExpanded && (
         <div className="border-t border-brand/10 p-5 space-y-5 animate-fade-in">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand/70 mb-2">Choose Template</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {Object.entries(REMINDER_TEMPLATES).map(([key, template]) => {
+                const isActive = message === template.message;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => { setMessage(template.message); setSendError(""); setSuccessMessage(""); }}
+                    className={`rounded-xl border px-4 py-3 text-left transition-all ${
+                      isActive
+                        ? "border-amber-500 bg-amber-50 text-amber-900 ring-2 ring-amber-500/10"
+                        : "border-brand/10 bg-white text-brand-dark hover:border-amber-300 hover:bg-amber-50/50"
+                    }`}
+                    aria-pressed={isActive}
+                  >
+                    <span className="flex items-center justify-between gap-3">
+                      <span>
+                        <span className="block text-sm font-bold">{template.label}</span>
+                        <span className="block text-[11px] opacity-60 mt-0.5">{template.description}</span>
+                      </span>
+                      <span className="material-symbols-outlined text-xl">
+                        {isActive ? "check_circle" : key === "morning" ? "wb_sunny" : "schedule"}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <label className="block">
             <span className="flex items-center justify-between gap-3 mb-2">
               <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand/70">Reminder Message</span>
@@ -103,7 +149,7 @@ const BulkReminderSmsPanel: React.FC<BulkReminderSmsPanelProps> = ({
                 onClick={() => { setMessage(DEFAULT_REMINDER_MESSAGE); setSendError(""); setSuccessMessage(""); }}
                 className="text-[11px] font-bold text-brand hover:text-brand-dark transition-colors"
               >
-                Restore Template
+                Reset to Morning
               </button>
             </span>
             <textarea
