@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS admin_login_attempts (
 CREATE TABLE IF NOT EXISTS sms_campaigns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   request_key TEXT NOT NULL UNIQUE,
-  kind TEXT NOT NULL CHECK (kind IN ('reminder', 'live')),
+  kind TEXT NOT NULL CHECK (kind IN ('reminder', 'live', 'general')),
   message TEXT NOT NULL CHECK (char_length(message) BETWEEN 1 AND 2000),
   audience_label TEXT NOT NULL,
   encoding TEXT NOT NULL CHECK (encoding IN ('GSM-7', 'UCS-2')),

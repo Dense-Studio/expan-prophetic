@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { createSmsCampaign, previewSmsCampaign, SmsAudienceOptions, SmsCampaignPreview } from "../lib/smsCampaignApi";
 
 interface SmsCampaignLauncherProps {
-  kind: "reminder" | "live";
+  kind: "reminder" | "live" | "general";
   message: string;
   registrationIds: string[];
   audienceLabel: string;

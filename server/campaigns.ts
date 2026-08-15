@@ -8,7 +8,7 @@ import {
 } from "./arkesel.js";
 import { getSupabaseAdmin } from "./supabaseAdmin.js";
 
-export type CampaignKind = "reminder" | "live";
+export type CampaignKind = "reminder" | "live" | "general";
 export type SmsAudienceMode = "standard" | "auditorium_first" | "auditorium_only" | "new_arrivals";
 export const SMS_BATCH_SIZE = 250;
 export const SMS_BATCH_CONCURRENCY = 3;
@@ -121,7 +121,7 @@ interface PreparedAudience {
 }
 
 function assertCampaignInput(kind: unknown, message: unknown, registrationIds: unknown) {
-  if (kind !== "reminder" && kind !== "live") throw new Error("Invalid SMS campaign type.");
+  if (kind !== "reminder" && kind !== "live" && kind !== "general") throw new Error("Invalid SMS campaign type.");
   if (typeof message !== "string" || !message.trim() || message.trim().length > 2000) {
     throw new Error("Enter an SMS message between 1 and 2,000 characters.");
   }
@@ -139,7 +139,7 @@ function parseAudienceOptions(input: {
   priorityEventKey?: unknown;
   priorityCutoff?: unknown;
 }): AudienceOptions {
-  if (input.kind !== "live") return { mode: "standard", eventKey: null, cutoff: null };
+  if (input.kind !== "live" && input.kind !== "general") return { mode: "standard", eventKey: null, cutoff: null };
   const mode = input.audienceMode ?? "standard";
   if (!["standard", "auditorium_first", "auditorium_only", "new_arrivals"].includes(String(mode))) {
     throw new Error("Select a valid live SMS audience mode.");
@@ -260,7 +260,7 @@ async function fetchCampaignPhones(campaignIds: string[]): Promise<Set<string>> 
   return phones;
 }
 
-async function prepareAudience(registrationIds: string[], options: AudienceOptions): Promise<PreparedAudience> {
+async function prepareAudience(registrationIds: string[], options: AudienceOptions, kind: CampaignKind): Promise<PreparedAudience> {
   let registrations = await fetchRegistrationPhones(registrationIds);
   const selectedRegistrationCount = registrations.length;
   let priorityRegistrationIds = new Set<string>();
@@ -273,7 +273,7 @@ async function prepareAudience(registrationIds: string[], options: AudienceOptio
       const { data, error } = await getSupabaseAdmin()
         .from("sms_campaigns")
         .select("id, created_at")
-        .eq("kind", "live")
+        .eq("kind", kind)
         .gte("created_at", options.cutoff)
         .order("created_at", { ascending: false })
         .limit(30);
@@ -297,7 +297,7 @@ async function prepareAudience(registrationIds: string[], options: AudienceOptio
       const previousCampaigns = await getSupabaseAdmin()
         .from("sms_campaigns")
         .select("id")
-        .eq("kind", "live")
+        .eq("kind", kind)
         .gte("created_at", options.cutoff)
         .lte("created_at", effectiveCutoff || options.cutoff)
         .limit(100);
@@ -355,7 +355,7 @@ export async function previewCampaign(input: {
   const audienceOptions = parseAudienceOptions(input);
   const ids = [...new Set(input.registrationIds as string[])];
   const message = (input.message as string).trim();
-  const prepared = await prepareAudience(ids, audienceOptions);
+  const prepared = await prepareAudience(ids, audienceOptions, input.kind as CampaignKind);
   const estimate = estimateSms(message);
   const estimatedCredits = prepared.valid.size * estimate.parts;
   const availableCredits = await getArkeselBalance();
@@ -417,7 +417,7 @@ export async function createCampaign(input: {
 
   const ids = [...new Set(input.registrationIds as string[])];
   const message = (input.message as string).trim();
-  const prepared = await prepareAudience(ids, audienceOptions);
+  const prepared = await prepareAudience(ids, audienceOptions, input.kind as CampaignKind);
   const estimate = estimateSms(message);
   const estimatedCredits = prepared.valid.size * estimate.parts;
   if (prepared.valid.size === 0) throw new Error("No valid Ghana phone numbers were found in this audience.");

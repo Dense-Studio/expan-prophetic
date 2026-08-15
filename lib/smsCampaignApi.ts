@@ -30,7 +30,7 @@ export interface SmsCampaignCounts {
 export interface SmsCampaign {
   id: string;
   request_key: string;
-  kind: "reminder" | "live";
+  kind: "reminder" | "live" | "general";
   message: string;
   audience_label: string;
   encoding: "GSM-7" | "UCS-2";
@@ -94,7 +94,7 @@ export interface SmsCampaignRecipient {
 }
 
 export async function previewSmsCampaign(input: {
-  kind: "reminder" | "live";
+  kind: "reminder" | "live" | "general";
   message: string;
   registrationIds: string[];
 } & Partial<SmsAudienceOptions>): Promise<SmsCampaignPreview> {
@@ -107,7 +107,7 @@ export async function previewSmsCampaign(input: {
 
 export async function createSmsCampaign(input: {
   requestKey: string;
-  kind: "reminder" | "live";
+  kind: "reminder" | "live" | "general";
   message: string;
   audienceLabel: string;
   registrationIds: string[];

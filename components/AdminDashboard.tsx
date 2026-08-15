@@ -15,10 +15,12 @@ import {
 import { EVENTS, getEventLabel } from "../lib/event";
 import BulkLiveSmsPanel from "./BulkLiveSmsPanel";
 import BulkReminderSmsPanel from "./BulkReminderSmsPanel";
+import GenericBroadcastSmsPanel from "./GenericBroadcastSmsPanel";
 import SmsCampaignHistory from "./SmsCampaignHistory";
 import { apiRequest } from "../lib/api";
 
 const PAGE_SIZE = 100;
+const AUGUST_14_LIVE_REGISTRATIONS_START = "2026-08-14T19:00:00.000Z";
 type AdminView = "registrations" | "check-ins";
 
 interface CheckInWithRegistration extends CheckIn {
@@ -61,6 +63,10 @@ function normalizePhoneNumber(phoneNumber: string): string | null {
   return null;
 }
 
+function wasRegisteredSince(registration: Registration, startTime: string): boolean {
+  return new Date(registration.created_at).getTime() >= new Date(startTime).getTime();
+}
+
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const registrationsTopRef = useRef<HTMLDivElement>(null);
@@ -75,6 +81,7 @@ const AdminDashboard: React.FC = () => {
   const [filterStudent, setFilterStudent] = useState<string>("all");
   const [filterLanguage, setFilterLanguage] = useState<string>("all");
   const [filterAttendanceCount, setFilterAttendanceCount] = useState<string>("all");
+  const [filterRegistrationDate, setFilterRegistrationDate] = useState<string>("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -144,7 +151,7 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeView, searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
+  }, [activeView, searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount, filterRegistrationDate]);
 
   const filtered = useMemo(() => {
     let items = registrations;
@@ -187,8 +194,12 @@ const AdminDashboard: React.FC = () => {
       items = items.filter(r => r.expan_attendance_count === Number(filterAttendanceCount));
     }
 
+    if (filterRegistrationDate !== "all") {
+      items = items.filter(registration => wasRegisteredSince(registration, filterRegistrationDate));
+    }
+
     return items;
-  }, [registrations, searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
+  }, [registrations, searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount, filterRegistrationDate]);
 
   const registrationsById = useMemo(
     () => new Map(registrations.map(registration => [registration.id, registration])),
@@ -229,9 +240,12 @@ const AdminDashboard: React.FC = () => {
     if (filterAttendanceCount !== "all") {
       items = items.filter(checkIn => checkIn.attendance_count === Number(filterAttendanceCount));
     }
+    if (filterRegistrationDate !== "all") {
+      items = items.filter(({ registration }) => wasRegisteredSince(registration, filterRegistrationDate));
+    }
 
     return items;
-  }, [checkIns, registrationsById, searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
+  }, [checkIns, registrationsById, searchQuery, filterEvent, filterSource, filterStudent, filterLanguage, filterAttendanceCount, filterRegistrationDate]);
 
   const activeItemCount = activeView === "check-ins" ? filteredCheckIns.length : filtered.length;
   const totalPages = Math.max(1, Math.ceil(activeItemCount / PAGE_SIZE));
@@ -286,10 +300,11 @@ const AdminDashboard: React.FC = () => {
       filterSource !== "all" ||
       filterStudent !== "all" ||
       filterLanguage !== "all" ||
-      filterAttendanceCount !== "all"
+      filterAttendanceCount !== "all" ||
+      filterRegistrationDate !== "all"
     );
     return hasExtraFilters ? `${edition}, matching the active filters` : edition;
-  }, [filterEvent, searchQuery, filterSource, filterStudent, filterLanguage, filterAttendanceCount]);
+  }, [filterEvent, searchQuery, filterSource, filterStudent, filterLanguage, filterAttendanceCount, filterRegistrationDate]);
 
   const openRegistrationDetails = (registration: Registration, checkIn: CheckIn | null = null) => {
     setSelectedRegistration(registration);
@@ -536,6 +551,15 @@ const AdminDashboard: React.FC = () => {
               ))}
             </select>
             <select
+              value={filterRegistrationDate}
+              onChange={e => setFilterRegistrationDate(e.target.value)}
+              className="h-12 px-4 text-sm font-semibold text-brand-dark bg-amber-50 border-2 border-amber-300/50 rounded-xl cursor-pointer focus:outline-none focus:border-brand"
+              aria-label="Filter by registration date"
+            >
+              <option value="all">All Registration Dates</option>
+              <option value={AUGUST_14_LIVE_REGISTRATIONS_START}>Registered since 7 PM · 14 August</option>
+            </select>
+            <select
               value={filterSource}
               onChange={e => setFilterSource(e.target.value)}
               className="h-12 px-4 text-sm text-brand-dark bg-white/70 border border-brand/15 rounded-xl cursor-pointer focus:outline-none focus:border-brand/40"
@@ -586,6 +610,12 @@ const AdminDashboard: React.FC = () => {
               />
 
               <BulkLiveSmsPanel
+                registrationIds={filtered.map((registration) => registration.id)}
+                audienceLabel={smsAudienceLabel}
+                onRefreshAudience={refreshAdminData}
+              />
+
+              <GenericBroadcastSmsPanel
                 registrationIds={filtered.map((registration) => registration.id)}
                 audienceLabel={smsAudienceLabel}
                 onRefreshAudience={refreshAdminData}
