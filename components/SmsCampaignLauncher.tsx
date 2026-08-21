@@ -118,6 +118,19 @@ const SmsCampaignLauncher: React.FC<SmsCampaignLauncherProps> = ({
                   {preview.excludedAlreadyContacted > 0 && <p className="text-xs text-violet-700 mt-1">{preview.excludedAlreadyContacted} previously contacted number{preview.excludedAlreadyContacted === 1 ? " was" : "s were"} excluded.</p>}
                 </div>
               )}
+              {preview.deliveryHistoryFilterApplied && (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-900">
+                  <p className="font-bold">Previous EXPAN delivery filter</p>
+                  <p className="mt-1">
+                    Including only: {preview.deliveryHistoryStatuses.map(status => status === "accepted" ? "submitted / accepted" : status.replaceAll("_", " ")).join(", ")}.
+                    {` ${preview.excludedByDeliveryHistory.toLocaleString()} valid number${preview.excludedByDeliveryHistory === 1 ? " was" : "s were"} excluded.`}
+                  </p>
+                  <p className="text-xs text-emerald-700 mt-2">
+                    {preview.deliveryHistoryCampaigns.toLocaleString()} EXPAN campaign{preview.deliveryHistoryCampaigns === 1 ? "" : "s"} checked
+                    {preview.deliveryHistoryFrom && preview.deliveryHistoryTo ? ` from ${new Date(preview.deliveryHistoryFrom).toLocaleString()} to ${new Date(preview.deliveryHistoryTo).toLocaleString()}` : ""}.
+                  </p>
+                </div>
+              )}
               {(preview.invalidRecipients > 0 || preview.duplicateRecipients > 0 || preview.missingRegistrations > 0) && (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
                   {preview.invalidRecipients} invalid, {preview.duplicateRecipients} duplicate and {preview.missingRegistrations} missing registration records will not be charged.

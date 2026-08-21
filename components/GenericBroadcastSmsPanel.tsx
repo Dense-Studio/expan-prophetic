@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { EVENT } from "../lib/event";
-import { SmsAudienceMode } from "../lib/smsCampaignApi";
+import { SmsAudienceMode, SmsDeliveryHistoryStatus } from "../lib/smsCampaignApi";
 import { estimateSms } from "../lib/smsEncoding";
 import SmsCampaignLauncher from "./SmsCampaignLauncher";
 
@@ -12,6 +12,21 @@ interface GenericBroadcastSmsPanelProps {
 
 const DEFAULT_THANK_YOU_MESSAGE = "Thank you for joining us at EXPAN All-Night 2026. We are grateful you were part of this powerful encounter. May the word and presence of God continue to work in your life. Stay connected and keep expecting more from God.";
 
+const DELIVERY_STATUS_OPTIONS: Array<[SmsDeliveryHistoryStatus, string, string]> = [
+  ["delivered", "Delivered", "Confirmed delivered to the handset"],
+  ["accepted", "Submitted / Accepted", "Still not confirmed after submission"],
+  ["not_delivered", "Not Delivered", "The provider confirmed delivery failed"],
+  ["expired", "Expired", "Delivery expired before reaching the handset"],
+  ["prohibited", "Prohibited", "The provider blocked the message"],
+  ["needs_review", "Needs Review", "Submission result is uncertain"],
+  ["failed", "Failed", "The submission itself failed"],
+];
+
+function toGhanaIso(value: string): string {
+  const parsed = Date.parse(`${value}:00Z`);
+  return Number.isNaN(parsed) ? "" : new Date(parsed).toISOString();
+}
+
 const GenericBroadcastSmsPanel: React.FC<GenericBroadcastSmsPanelProps> = ({
   registrationIds,
   audienceLabel,
@@ -19,8 +34,12 @@ const GenericBroadcastSmsPanel: React.FC<GenericBroadcastSmsPanelProps> = ({
 }) => {
   const [message, setMessage] = useState(DEFAULT_THANK_YOU_MESSAGE);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [audienceMode, setAudienceMode] = useState<SmsAudienceMode>("auditorium_only");
+  const [audienceMode, setAudienceMode] = useState<SmsAudienceMode>("standard");
   const [arrivalCutoff, setArrivalCutoff] = useState("2026-08-14T19:00");
+  const [deliveryHistoryEnabled, setDeliveryHistoryEnabled] = useState(true);
+  const [deliveryHistoryStatuses, setDeliveryHistoryStatuses] = useState<SmsDeliveryHistoryStatus[]>(["delivered"]);
+  const [deliveryHistoryFrom, setDeliveryHistoryFrom] = useState("2026-08-14T00:00");
+  const [deliveryHistoryTo, setDeliveryHistoryTo] = useState("2026-08-15T00:00");
   const [isRefreshingAudience, setIsRefreshingAudience] = useState(false);
   const trimmedMessage = message.trim();
   const estimate = estimateSms(trimmedMessage);
@@ -35,8 +54,25 @@ const GenericBroadcastSmsPanel: React.FC<GenericBroadcastSmsPanelProps> = ({
       auditorium_only: "tonight's auditorium attendees only",
       new_arrivals: "new arrivals since the previous generic broadcast",
     };
-    return `${audienceLabel}; ${suffix[audienceMode]}`;
-  }, [audienceLabel, audienceMode]);
+    const deliverySuffix = deliveryHistoryEnabled
+      ? `; previous delivery status: ${deliveryHistoryStatuses.join(", ")}`
+      : "";
+    return `${audienceLabel}; ${suffix[audienceMode]}${deliverySuffix}`;
+  }, [audienceLabel, audienceMode, deliveryHistoryEnabled, deliveryHistoryStatuses]);
+
+  const toggleDeliveryStatus = (status: SmsDeliveryHistoryStatus) => {
+    setDeliveryHistoryStatuses(current => {
+      if (current.includes(status)) return current.length === 1 ? current : current.filter(value => value !== status);
+      return [...current, status];
+    });
+  };
+
+  const deliveryHistoryOptions = deliveryHistoryEnabled ? {
+    deliveryHistoryEnabled: true,
+    deliveryHistoryStatuses,
+    deliveryHistoryFrom: toGhanaIso(deliveryHistoryFrom),
+    deliveryHistoryTo: toGhanaIso(deliveryHistoryTo),
+  } : { deliveryHistoryEnabled: false };
 
   return (
     <section className="bg-white/75 border border-brand/10 rounded-2xl shadow-sm overflow-hidden">
@@ -65,7 +101,7 @@ const GenericBroadcastSmsPanel: React.FC<GenericBroadcastSmsPanelProps> = ({
               <span className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0"><span className="material-symbols-outlined">groups</span></span>
               <div>
                 <p className="font-bold text-violet-950">Delivery audience</p>
-                <p className="text-xs text-violet-700 mt-0.5">This thank-you message defaults to people recorded in the auditorium only.</p>
+                <p className="text-xs text-violet-700 mt-0.5">Choose the base audience first; the delivery-status filter below narrows it further.</p>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -93,6 +129,56 @@ const GenericBroadcastSmsPanel: React.FC<GenericBroadcastSmsPanelProps> = ({
             )}
           </div>
 
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0"><span className="material-symbols-outlined">verified</span></span>
+                <div>
+                  <p className="font-bold text-emerald-950">Previous EXPAN delivery status</p>
+                  <p className="text-xs text-emerald-700 mt-0.5">Only include numbers matching at least one selected status during this period.</p>
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-2 text-xs font-bold text-emerald-900 cursor-pointer">
+                <input type="checkbox" checked={deliveryHistoryEnabled} onChange={event => setDeliveryHistoryEnabled(event.target.checked)} className="w-4 h-4 accent-emerald-600" />
+                Apply filter
+              </label>
+            </div>
+
+            {deliveryHistoryEnabled && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700 mb-1.5">SMS sent from</span>
+                    <input type="datetime-local" value={deliveryHistoryFrom} onChange={event => setDeliveryHistoryFrom(event.target.value)} className="w-full h-11 px-3 rounded-xl border border-emerald-200 bg-white text-sm text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  </label>
+                  <label className="block">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700 mb-1.5">SMS sent before</span>
+                    <input type="datetime-local" value={deliveryHistoryTo} onChange={event => setDeliveryHistoryTo(event.target.value)} className="w-full h-11 px-3 rounded-xl border border-emerald-200 bg-white text-sm text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  </label>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700 mb-2">Include these results</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    {DELIVERY_STATUS_OPTIONS.map(([value, label, description]) => {
+                      const selected = deliveryHistoryStatuses.includes(value);
+                      return (
+                        <button key={value} type="button" onClick={() => toggleDeliveryStatus(value)} aria-pressed={selected} className={`rounded-xl border p-3 text-left transition-all ${selected ? "border-emerald-600 bg-white shadow-sm ring-2 ring-emerald-200" : "border-emerald-200 bg-white/60 hover:bg-white"}`}>
+                          <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-950"><span className="material-symbols-outlined text-base">{selected ? "check_box" : "check_box_outline_blank"}</span>{label}</span>
+                          <span className="block text-[10px] leading-relaxed text-emerald-700 mt-1">{description}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-emerald-200 bg-white/80 px-4 py-3 text-xs text-emerald-800">
+                  {deliveryHistoryStatuses.length === 1 && deliveryHistoryStatuses[0] === "delivered"
+                    ? <><strong>Delivered only is currently selected.</strong> Submitted/accepted, not delivered and expired numbers will be excluded from the new campaign.</>
+                    : <><strong>{deliveryHistoryStatuses.length} statuses selected.</strong> A number will be included if it matches any selected status during this period.</>}
+                </div>
+              </>
+            )}
+          </div>
+
           <label className="block">
             <span className="flex items-center justify-between gap-3 mb-2">
               <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand/70">Your message</span>
@@ -106,7 +192,7 @@ const GenericBroadcastSmsPanel: React.FC<GenericBroadcastSmsPanelProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3"><p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand/65">SMS Preview</p><span className="text-[10px] text-brand/45">{estimate.characters} characters · {estimate.parts} part{estimate.parts === 1 ? "" : "s"} · {estimate.encoding}</span></div>
               <p className={`whitespace-pre-wrap text-sm leading-relaxed ${trimmedMessage ? "text-brand-dark" : "text-brand/40"}`}>{trimmedMessage || "Your custom broadcast preview will appear here."}</p>
             </div>
-            <SmsCampaignLauncher kind="general" message={trimmedMessage} registrationIds={registrationIds} audienceLabel={priorityAudienceLabel} audienceOptions={{ audienceMode, ...(audienceMode === "standard" ? {} : { priorityEventKey: EVENT.key, priorityCutoff: arrivalCutoffIso }) }} tone="brand" buttonLabel="Review & Send" />
+            <SmsCampaignLauncher kind="general" message={trimmedMessage} registrationIds={registrationIds} audienceLabel={priorityAudienceLabel} audienceOptions={{ audienceMode, ...(audienceMode === "standard" ? {} : { priorityEventKey: EVENT.key, priorityCutoff: arrivalCutoffIso }), ...deliveryHistoryOptions }} tone="brand" buttonLabel="Review & Send" />
           </div>
         </div>
       )}

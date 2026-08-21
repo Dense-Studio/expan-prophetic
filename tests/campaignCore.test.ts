@@ -4,6 +4,7 @@ import {
   calculateBatchCount,
   isRetryableDeliveryStatus,
   mapProviderStatus,
+  parseDeliveryHistoryOptions,
   registrationMatchesArrivalWindow,
   SMS_BATCH_CONCURRENCY,
   SMS_BATCH_SIZE,
@@ -35,6 +36,37 @@ describe("delivery status policy", () => {
     expect(isRetryableDeliveryStatus("expired")).toBe(true);
     expect(isRetryableDeliveryStatus("needs_review")).toBe(false);
     expect(isRetryableDeliveryStatus("prohibited")).toBe(false);
+  });
+
+  it("accepts a delivered-only history window for a generic broadcast", () => {
+    expect(parseDeliveryHistoryOptions({
+      kind: "general",
+      deliveryHistoryEnabled: true,
+      deliveryHistoryStatuses: ["delivered"],
+      deliveryHistoryFrom: "2026-08-14T00:00:00Z",
+      deliveryHistoryTo: "2026-08-15T00:00:00Z",
+    })).toEqual({
+      statuses: ["delivered"],
+      from: "2026-08-14T00:00:00.000Z",
+      to: "2026-08-15T00:00:00.000Z",
+    });
+  });
+
+  it("rejects an empty or reversed history filter", () => {
+    expect(() => parseDeliveryHistoryOptions({
+      kind: "general",
+      deliveryHistoryEnabled: true,
+      deliveryHistoryStatuses: [],
+      deliveryHistoryFrom: "2026-08-14T00:00:00Z",
+      deliveryHistoryTo: "2026-08-15T00:00:00Z",
+    })).toThrow("Select at least one");
+    expect(() => parseDeliveryHistoryOptions({
+      kind: "general",
+      deliveryHistoryEnabled: true,
+      deliveryHistoryStatuses: ["delivered"],
+      deliveryHistoryFrom: "2026-08-15T00:00:00Z",
+      deliveryHistoryTo: "2026-08-14T00:00:00Z",
+    })).toThrow("date range is invalid");
   });
 });
 

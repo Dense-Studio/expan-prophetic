@@ -6,10 +6,23 @@ export type SmsCampaignStatus =
 
 export type SmsAudienceMode = "standard" | "auditorium_first" | "auditorium_only" | "new_arrivals";
 
+export type SmsDeliveryHistoryStatus =
+  | "delivered"
+  | "accepted"
+  | "not_delivered"
+  | "expired"
+  | "prohibited"
+  | "needs_review"
+  | "failed";
+
 export interface SmsAudienceOptions {
   audienceMode: SmsAudienceMode;
   priorityEventKey?: string;
   priorityCutoff?: string;
+  deliveryHistoryEnabled?: boolean;
+  deliveryHistoryStatuses?: SmsDeliveryHistoryStatus[];
+  deliveryHistoryFrom?: string;
+  deliveryHistoryTo?: string;
 }
 
 export interface SmsCampaignCounts {
@@ -75,6 +88,12 @@ export interface SmsCampaignPreview {
   priorityRecipients: number;
   remainingRecipients: number;
   excludedAlreadyContacted: number;
+  deliveryHistoryFilterApplied: boolean;
+  deliveryHistoryStatuses: SmsDeliveryHistoryStatus[];
+  deliveryHistoryFrom: string | null;
+  deliveryHistoryTo: string | null;
+  deliveryHistoryCampaigns: number;
+  excludedByDeliveryHistory: number;
   effectiveCutoff: string | null;
   sourceCampaignId: string | null;
 }

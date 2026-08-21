@@ -10,6 +10,16 @@ import { getSupabaseAdmin } from "./supabaseAdmin.js";
 
 export type CampaignKind = "reminder" | "live" | "general";
 export type SmsAudienceMode = "standard" | "auditorium_first" | "auditorium_only" | "new_arrivals";
+export type DeliveryHistoryStatus = "delivered" | "accepted" | "not_delivered" | "expired" | "prohibited" | "needs_review" | "failed";
+export const DELIVERY_HISTORY_STATUSES: DeliveryHistoryStatus[] = [
+  "delivered",
+  "accepted",
+  "not_delivered",
+  "expired",
+  "prohibited",
+  "needs_review",
+  "failed",
+];
 export const SMS_BATCH_SIZE = 250;
 export const SMS_BATCH_CONCURRENCY = 3;
 
@@ -96,6 +106,12 @@ export interface CampaignPreview {
   priorityRecipients: number;
   remainingRecipients: number;
   excludedAlreadyContacted: number;
+  deliveryHistoryFilterApplied: boolean;
+  deliveryHistoryStatuses: DeliveryHistoryStatus[];
+  deliveryHistoryFrom: string | null;
+  deliveryHistoryTo: string | null;
+  deliveryHistoryCampaigns: number;
+  excludedByDeliveryHistory: number;
   effectiveCutoff: string | null;
   sourceCampaignId: string | null;
 }
@@ -104,6 +120,13 @@ interface AudienceOptions {
   mode: SmsAudienceMode;
   eventKey: string | null;
   cutoff: string | null;
+  deliveryHistory: DeliveryHistoryOptions | null;
+}
+
+interface DeliveryHistoryOptions {
+  statuses: DeliveryHistoryStatus[];
+  from: string;
+  to: string;
 }
 
 interface PreparedAudience {
@@ -116,6 +139,8 @@ interface PreparedAudience {
   priorityRecipients: number;
   remainingRecipients: number;
   excludedAlreadyContacted: number;
+  deliveryHistoryCampaigns: number;
+  excludedByDeliveryHistory: number;
   effectiveCutoff: string | null;
   sourceCampaignId: string | null;
 }
@@ -138,13 +163,18 @@ function parseAudienceOptions(input: {
   audienceMode?: unknown;
   priorityEventKey?: unknown;
   priorityCutoff?: unknown;
+  deliveryHistoryEnabled?: unknown;
+  deliveryHistoryStatuses?: unknown;
+  deliveryHistoryFrom?: unknown;
+  deliveryHistoryTo?: unknown;
 }): AudienceOptions {
-  if (input.kind !== "live" && input.kind !== "general") return { mode: "standard", eventKey: null, cutoff: null };
+  const deliveryHistory = parseDeliveryHistoryOptions(input);
+  if (input.kind !== "live" && input.kind !== "general") return { mode: "standard", eventKey: null, cutoff: null, deliveryHistory };
   const mode = input.audienceMode ?? "standard";
   if (!["standard", "auditorium_first", "auditorium_only", "new_arrivals"].includes(String(mode))) {
     throw new Error("Select a valid live SMS audience mode.");
   }
-  if (mode === "standard") return { mode: "standard", eventKey: null, cutoff: null };
+  if (mode === "standard") return { mode: "standard", eventKey: null, cutoff: null, deliveryHistory };
   if (typeof input.priorityEventKey !== "string" || !/^[a-z0-9-]{3,100}$/i.test(input.priorityEventKey)) {
     throw new Error("The live SMS event reference is invalid.");
   }
@@ -155,6 +185,41 @@ function parseAudienceOptions(input: {
     mode: mode as SmsAudienceMode,
     eventKey: input.priorityEventKey,
     cutoff: new Date(input.priorityCutoff).toISOString(),
+    deliveryHistory,
+  };
+}
+
+export function parseDeliveryHistoryOptions(input: {
+  kind: unknown;
+  deliveryHistoryEnabled?: unknown;
+  deliveryHistoryStatuses?: unknown;
+  deliveryHistoryFrom?: unknown;
+  deliveryHistoryTo?: unknown;
+}): DeliveryHistoryOptions | null {
+  if (input.deliveryHistoryEnabled !== true) return null;
+  if (input.kind !== "general") throw new Error("Delivery-history filtering is available only for generic broadcasts.");
+  if (!Array.isArray(input.deliveryHistoryStatuses) || input.deliveryHistoryStatuses.length === 0) {
+    throw new Error("Select at least one previous delivery status to include.");
+  }
+  const statuses = [...new Set(input.deliveryHistoryStatuses.map(String))];
+  if (!statuses.every((status) => DELIVERY_HISTORY_STATUSES.includes(status as DeliveryHistoryStatus))) {
+    throw new Error("Select valid previous delivery statuses.");
+  }
+  if (typeof input.deliveryHistoryFrom !== "string" || typeof input.deliveryHistoryTo !== "string") {
+    throw new Error("Select a valid previous delivery date range.");
+  }
+  const fromTime = Date.parse(input.deliveryHistoryFrom);
+  const toTime = Date.parse(input.deliveryHistoryTo);
+  if (Number.isNaN(fromTime) || Number.isNaN(toTime) || toTime <= fromTime) {
+    throw new Error("The previous delivery date range is invalid.");
+  }
+  if (toTime - fromTime > 31 * 24 * 60 * 60 * 1000) {
+    throw new Error("The previous delivery date range cannot exceed 31 days.");
+  }
+  return {
+    statuses: statuses as DeliveryHistoryStatus[],
+    from: new Date(fromTime).toISOString(),
+    to: new Date(toTime).toISOString(),
   };
 }
 
@@ -260,6 +325,46 @@ async function fetchCampaignPhones(campaignIds: string[]): Promise<Set<string>> 
   return phones;
 }
 
+async function fetchDeliveryHistoryPhones(options: DeliveryHistoryOptions): Promise<{ phones: Set<string>; campaignCount: number }> {
+  const supabase = getSupabaseAdmin();
+  const campaignIds: string[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("sms_campaigns")
+      .select("id")
+      .eq("sandbox", false)
+      .gte("created_at", options.from)
+      .lt("created_at", options.to)
+      .order("created_at", { ascending: true })
+      .range(from, from + 999);
+    if (error) throw new Error(`Could not load earlier EXPAN campaigns: ${error.message}`);
+    for (const row of data || []) {
+      if (typeof row.id === "string") campaignIds.push(row.id);
+    }
+    if ((data || []).length < 1000) break;
+  }
+
+  const phones = new Set<string>();
+  for (let campaignIndex = 0; campaignIndex < campaignIds.length; campaignIndex += 100) {
+    const campaignChunk = campaignIds.slice(campaignIndex, campaignIndex + 100);
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from("sms_campaign_recipients")
+        .select("normalized_phone")
+        .in("campaign_id", campaignChunk)
+        .in("status", options.statuses)
+        .not("normalized_phone", "is", null)
+        .range(from, from + 999);
+      if (error) throw new Error(`Could not load earlier EXPAN delivery results: ${error.message}`);
+      for (const row of data || []) {
+        if (typeof row.normalized_phone === "string") phones.add(row.normalized_phone);
+      }
+      if ((data || []).length < 1000) break;
+    }
+  }
+  return { phones, campaignCount: campaignIds.length };
+}
+
 async function prepareAudience(registrationIds: string[], options: AudienceOptions, kind: CampaignKind): Promise<PreparedAudience> {
   let registrations = await fetchRegistrationPhones(registrationIds);
   const selectedRegistrationCount = registrations.length;
@@ -267,6 +372,8 @@ async function prepareAudience(registrationIds: string[], options: AudienceOptio
   let effectiveCutoff = options.cutoff;
   let sourceCampaignId: string | null = null;
   let excludedAlreadyContacted = 0;
+  let deliveryHistoryCampaigns = 0;
+  let excludedByDeliveryHistory = 0;
 
   if (options.mode !== "standard" && options.eventKey && options.cutoff) {
     if (options.mode === "new_arrivals") {
@@ -316,6 +423,16 @@ async function prepareAudience(registrationIds: string[], options: AudienceOptio
   }
 
   const prepared = prepareRecipients(registrations, priorityRegistrationIds);
+  if (options.deliveryHistory) {
+    const history = await fetchDeliveryHistoryPhones(options.deliveryHistory);
+    deliveryHistoryCampaigns = history.campaignCount;
+    for (const phone of [...prepared.valid.keys()]) {
+      if (!history.phones.has(phone)) {
+        prepared.valid.delete(phone);
+        excludedByDeliveryHistory += 1;
+      }
+    }
+  }
   const priorityRecipients = [...prepared.valid.values()]
     .filter((registration) => priorityRegistrationIds.has(registration.id)).length;
   return {
@@ -326,6 +443,8 @@ async function prepareAudience(registrationIds: string[], options: AudienceOptio
     priorityRecipients,
     remainingRecipients: prepared.valid.size - priorityRecipients,
     excludedAlreadyContacted,
+    deliveryHistoryCampaigns,
+    excludedByDeliveryHistory,
     effectiveCutoff,
     sourceCampaignId,
   };
@@ -350,6 +469,10 @@ export async function previewCampaign(input: {
   audienceMode?: unknown;
   priorityEventKey?: unknown;
   priorityCutoff?: unknown;
+  deliveryHistoryEnabled?: unknown;
+  deliveryHistoryStatuses?: unknown;
+  deliveryHistoryFrom?: unknown;
+  deliveryHistoryTo?: unknown;
 }): Promise<CampaignPreview> {
   assertCampaignInput(input.kind, input.message, input.registrationIds);
   const audienceOptions = parseAudienceOptions(input);
@@ -379,6 +502,12 @@ export async function previewCampaign(input: {
     priorityRecipients: prepared.priorityRecipients,
     remainingRecipients: prepared.remainingRecipients,
     excludedAlreadyContacted: prepared.excludedAlreadyContacted,
+    deliveryHistoryFilterApplied: Boolean(audienceOptions.deliveryHistory),
+    deliveryHistoryStatuses: audienceOptions.deliveryHistory?.statuses || [],
+    deliveryHistoryFrom: audienceOptions.deliveryHistory?.from || null,
+    deliveryHistoryTo: audienceOptions.deliveryHistory?.to || null,
+    deliveryHistoryCampaigns: prepared.deliveryHistoryCampaigns,
+    excludedByDeliveryHistory: prepared.excludedByDeliveryHistory,
     effectiveCutoff: prepared.effectiveCutoff,
     sourceCampaignId: prepared.sourceCampaignId,
   };
@@ -393,6 +522,10 @@ export async function createCampaign(input: {
   audienceMode?: unknown;
   priorityEventKey?: unknown;
   priorityCutoff?: unknown;
+  deliveryHistoryEnabled?: unknown;
+  deliveryHistoryStatuses?: unknown;
+  deliveryHistoryFrom?: unknown;
+  deliveryHistoryTo?: unknown;
 }): Promise<CampaignRow> {
   if (process.env.SMS_BULK_ENABLED !== "true") {
     throw new Error("Reliable bulk sending is disabled until rollout configuration is complete.");
