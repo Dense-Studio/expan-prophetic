@@ -1,16 +1,20 @@
 import React, { useMemo, useState } from "react";
+import type { Registration } from "../lib/adminDb";
 import { EVENT } from "../lib/event";
+import { matchOutreachLocationId, PROPHETIC_SUNDAYS_LOCATIONS } from "../lib/locationTargeting";
 import { SmsAudienceMode, SmsDeliveryHistoryStatus } from "../lib/smsCampaignApi";
 import { estimateSms } from "../lib/smsEncoding";
 import SmsCampaignLauncher from "./SmsCampaignLauncher";
 
 interface GenericBroadcastSmsPanelProps {
-  registrationIds: string[];
+  registrations: Registration[];
   audienceLabel: string;
   onRefreshAudience?: () => Promise<void>;
 }
 
 const DEFAULT_THANK_YOU_MESSAGE = "Thank you for joining us at EXPAN All-Night 2026. We are grateful you were part of this powerful encounter. May the word and presence of God continue to work in your life. Stay connected and keep expecting more from God.";
+const PROPHETIC_SUNDAYS_MESSAGE = "Join Prophet Emmanuel Andoh for 3 Sundays of the Prophetic: 6th, 13th & 20th Sept at Inchaban Star Oil Filling Station, 5 PM each night. Come expectant!";
+const PROPHETIC_SUNDAYS_LOCATION_IDS = PROPHETIC_SUNDAYS_LOCATIONS.map(location => location.id);
 
 const DELIVERY_STATUS_OPTIONS: Array<[SmsDeliveryHistoryStatus, string, string]> = [
   ["delivered", "Delivered", "Confirmed delivered to the handset"],
@@ -28,21 +32,47 @@ function toGhanaIso(value: string): string {
 }
 
 const GenericBroadcastSmsPanel: React.FC<GenericBroadcastSmsPanelProps> = ({
-  registrationIds,
+  registrations,
   audienceLabel,
   onRefreshAudience,
 }) => {
-  const [message, setMessage] = useState(DEFAULT_THANK_YOU_MESSAGE);
+  const [message, setMessage] = useState(PROPHETIC_SUNDAYS_MESSAGE);
   const [isExpanded, setIsExpanded] = useState(false);
   const [audienceMode, setAudienceMode] = useState<SmsAudienceMode>("standard");
+  const [locationTargetingEnabled, setLocationTargetingEnabled] = useState(true);
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>(PROPHETIC_SUNDAYS_LOCATION_IDS);
   const [arrivalCutoff, setArrivalCutoff] = useState("2026-08-14T19:00");
-  const [deliveryHistoryEnabled, setDeliveryHistoryEnabled] = useState(true);
+  const [deliveryHistoryEnabled, setDeliveryHistoryEnabled] = useState(false);
   const [deliveryHistoryStatuses, setDeliveryHistoryStatuses] = useState<SmsDeliveryHistoryStatus[]>(["delivered"]);
   const [deliveryHistoryFrom, setDeliveryHistoryFrom] = useState("2026-08-14T00:00");
   const [deliveryHistoryTo, setDeliveryHistoryTo] = useState("2026-08-15T00:00");
   const [isRefreshingAudience, setIsRefreshingAudience] = useState(false);
   const trimmedMessage = message.trim();
   const estimate = estimateSms(trimmedMessage);
+  const locationCounts = useMemo(() => {
+    const counts = new Map(PROPHETIC_SUNDAYS_LOCATION_IDS.map(id => [id, 0]));
+    registrations.forEach(registration => {
+      const locationId = matchOutreachLocationId(registration.location_name);
+      if (locationId) counts.set(locationId, (counts.get(locationId) || 0) + 1);
+    });
+    return counts;
+  }, [registrations]);
+  const targetedRegistrations = useMemo(() => {
+    if (!locationTargetingEnabled) return registrations;
+    const selected = new Set(selectedLocationIds);
+    return registrations.filter(registration => {
+      const locationId = matchOutreachLocationId(registration.location_name);
+      return locationId !== null && selected.has(locationId);
+    });
+  }, [locationTargetingEnabled, registrations, selectedLocationIds]);
+  const registrationIds = useMemo(() => targetedRegistrations.map(registration => registration.id), [targetedRegistrations]);
+  const locationAudienceLabel = useMemo(() => {
+    if (!locationTargetingEnabled) return audienceLabel;
+    const labels = PROPHETIC_SUNDAYS_LOCATIONS
+      .filter(location => selectedLocationIds.includes(location.id))
+      .map(location => location.label);
+    return `${audienceLabel}; locations: ${labels.join(", ")}`;
+  }, [audienceLabel, locationTargetingEnabled, selectedLocationIds]);
   const arrivalCutoffIso = useMemo(() => {
     const parsed = Date.parse(`${arrivalCutoff}:00Z`);
     return Number.isNaN(parsed) ? EVENT.checkInOpensAt : new Date(parsed).toISOString();
@@ -57,8 +87,22 @@ const GenericBroadcastSmsPanel: React.FC<GenericBroadcastSmsPanelProps> = ({
     const deliverySuffix = deliveryHistoryEnabled
       ? `; previous delivery status: ${deliveryHistoryStatuses.join(", ")}`
       : "";
-    return `${audienceLabel}; ${suffix[audienceMode]}${deliverySuffix}`;
-  }, [audienceLabel, audienceMode, deliveryHistoryEnabled, deliveryHistoryStatuses]);
+    return `${locationAudienceLabel}; ${suffix[audienceMode]}${deliverySuffix}`;
+  }, [locationAudienceLabel, audienceMode, deliveryHistoryEnabled, deliveryHistoryStatuses]);
+
+  const toggleLocation = (locationId: string) => {
+    setSelectedLocationIds(current => current.includes(locationId)
+      ? current.filter(id => id !== locationId)
+      : [...current, locationId]);
+  };
+
+  const applyPropheticSundaysPreset = () => {
+    setMessage(PROPHETIC_SUNDAYS_MESSAGE);
+    setLocationTargetingEnabled(true);
+    setSelectedLocationIds(PROPHETIC_SUNDAYS_LOCATION_IDS);
+    setAudienceMode("standard");
+    setDeliveryHistoryEnabled(false);
+  };
 
   const toggleDeliveryStatus = (status: SmsDeliveryHistoryStatus) => {
     setDeliveryHistoryStatuses(current => {
@@ -96,6 +140,64 @@ const GenericBroadcastSmsPanel: React.FC<GenericBroadcastSmsPanelProps> = ({
 
       {isExpanded && (
         <div className="border-t border-brand/10 p-5 space-y-5 animate-fade-in">
+          <div className="rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0"><span className="material-symbols-outlined">campaign</span></span>
+                <div>
+                  <p className="font-bold text-amber-950">3 Sundays of the Prophetic</p>
+                  <p className="text-xs text-amber-800 mt-0.5">Prophet Emmanuel Andoh · 6th, 13th &amp; 20th September · Inchaban · 5 PM</p>
+                </div>
+              </div>
+              <button type="button" onClick={applyPropheticSundaysPreset} className="h-10 px-4 rounded-xl bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 transition-colors shrink-0">
+                Load campaign preset
+              </button>
+            </div>
+            <p className="text-[11px] leading-relaxed text-amber-800">Loads the approved invitation, selects all seven requested areas, uses normal delivery order, and removes previous-delivery restrictions.</p>
+          </div>
+
+          <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0"><span className="material-symbols-outlined">location_on</span></span>
+                <div>
+                  <p className="font-bold text-sky-950">Target locations</p>
+                  <p className="text-xs text-sky-700 mt-0.5">Select one or more areas. Matching ignores case, punctuation, and the Mpinstin/Mpintsin spelling variation.</p>
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-2 text-xs font-bold text-sky-900 cursor-pointer shrink-0">
+                <input type="checkbox" checked={locationTargetingEnabled} onChange={event => setLocationTargetingEnabled(event.target.checked)} className="w-4 h-4 accent-sky-600" />
+                Limit by location
+              </label>
+            </div>
+            <div className={`grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 ${locationTargetingEnabled ? "" : "opacity-45"}`}>
+              {PROPHETIC_SUNDAYS_LOCATIONS.map(location => {
+                const selected = selectedLocationIds.includes(location.id);
+                const count = locationCounts.get(location.id) || 0;
+                return (
+                  <button key={location.id} type="button" disabled={!locationTargetingEnabled} onClick={() => toggleLocation(location.id)} aria-pressed={selected} className={`rounded-xl border px-3 py-3 text-left transition-all disabled:cursor-not-allowed ${selected ? "border-sky-600 bg-white shadow-sm ring-2 ring-sky-200" : "border-sky-200 bg-white/50 hover:bg-white"}`}>
+                    <span className="flex items-center gap-1 text-xs font-bold text-sky-950"><span className="material-symbols-outlined text-base">{selected ? "check_box" : "check_box_outline_blank"}</span>{location.label}</span>
+                    <span className="block text-[10px] text-sky-700 mt-1">{count.toLocaleString()} match{count === 1 ? "" : "es"}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {locationTargetingEnabled && (
+              <div className="flex flex-wrap gap-3 text-[11px] font-bold">
+                <button type="button" onClick={() => setSelectedLocationIds(PROPHETIC_SUNDAYS_LOCATION_IDS)} className="text-sky-700 hover:text-sky-950">Select all requested locations</button>
+                <button type="button" onClick={() => setSelectedLocationIds([])} className="text-sky-700 hover:text-sky-950">Clear selection</button>
+              </div>
+            )}
+            <div className="rounded-xl border border-sky-200 bg-white/80 px-4 py-3 text-xs text-sky-900">
+              <strong>{registrationIds.length.toLocaleString()} recipient record{registrationIds.length === 1 ? "" : "s"} selected.</strong>{" "}
+              {!locationTargetingEnabled
+                ? "Location targeting is off; all records matching the dashboard filters are included."
+                : selectedLocationIds.length === 0
+                  ? "Choose at least one location before reviewing the campaign."
+                  : `${selectedLocationIds.length} requested location${selectedLocationIds.length === 1 ? " is" : "s are"} active.`}
+            </div>
+          </div>
+
           <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-4 space-y-4">
             <div className="flex items-start gap-3">
               <span className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0"><span className="material-symbols-outlined">groups</span></span>
@@ -182,7 +284,10 @@ const GenericBroadcastSmsPanel: React.FC<GenericBroadcastSmsPanelProps> = ({
           <label className="block">
             <span className="flex items-center justify-between gap-3 mb-2">
               <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand/70">Your message</span>
-              <button type="button" onClick={() => setMessage(DEFAULT_THANK_YOU_MESSAGE)} className="text-[11px] font-bold text-brand hover:text-brand-dark">Reset thank-you message</button>
+              <span className="flex items-center gap-3">
+                <button type="button" onClick={() => setMessage(PROPHETIC_SUNDAYS_MESSAGE)} className="text-[11px] font-bold text-amber-700 hover:text-amber-900">Prophetic Sundays</button>
+                <button type="button" onClick={() => setMessage(DEFAULT_THANK_YOU_MESSAGE)} className="text-[11px] font-bold text-brand hover:text-brand-dark">EXPAN thank-you</button>
+              </span>
             </span>
             <textarea value={message} onChange={event => setMessage(event.target.value)} rows={7} maxLength={918} className="w-full resize-y rounded-xl border border-brand/15 bg-white px-4 py-3 text-sm leading-relaxed text-brand-dark placeholder:text-brand/35 focus:outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/10" placeholder="Write the message you want to send..." />
           </label>

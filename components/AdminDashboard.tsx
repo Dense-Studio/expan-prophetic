@@ -616,7 +616,7 @@ const AdminDashboard: React.FC = () => {
               />
 
               <GenericBroadcastSmsPanel
-                registrationIds={filtered.map((registration) => registration.id)}
+                registrations={filtered}
                 audienceLabel={smsAudienceLabel}
                 onRefreshAudience={refreshAdminData}
               />
